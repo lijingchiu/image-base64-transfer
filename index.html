@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image Base64 Transfer</title>
+  <style>
+    :root {
+      --bg: #f5f5f5;
+      --panel: #ffffff;
+      --text: #1f1f1f;
+      --muted: #666666;
+      --line: #d7d7d7;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --danger: #b91c1c;
+      --success: #047857;
+      --warning-bg: #fff7ed;
+      --warning-line: #fdba74;
+      --info-bg: #eff6ff;
+      --info-line: #93c5fd;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 28px 18px 64px;
+    }
+
+    h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.02em; }
+    h2 { margin: 0 0 14px; font-size: 20px; }
+    h3 { margin: 18px 0 10px; font-size: 16px; }
+    p { margin: 0 0 10px; color: var(--muted); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    @media (max-width: 920px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+    }
+
+    .notice {
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--info-line);
+      background: var(--info-bg);
+      color: #1e3a8a;
+      margin: 14px 0;
+      font-size: 14px;
+    }
+
+    .warning {
+      border-color: var(--warning-line);
+      background: var(--warning-bg);
+      color: #9a3412;
+    }
+
+    label {
+      display: block;
+      font-weight: 650;
+      margin: 14px 0 6px;
+      font-size: 14px;
+    }
+
+    .hint {
+      display: block;
+      color: var(--muted);
+      font-weight: 400;
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    input[type="file"], input[type="text"], input[type="password"], input[type="number"], select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 10px 11px;
+      background: #ffffff;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+      outline: none;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    textarea {
+      min-height: 220px;
+      resize: vertical;
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 760px) {
+      .row, .row-3 { grid-template-columns: 1fr; }
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button, .download-link {
+      border: 0;
+      border-radius: 9px;
+      padding: 10px 14px;
+      background: var(--accent);
+      color: #ffffff;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 650;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+    }
+
+    button:hover, .download-link:hover { background: var(--accent-hover); }
+    button.secondary { background: #e5e7eb; color: #111827; }
+    button.secondary:hover { background: #d1d5db; }
+    button.danger { background: #dc2626; }
+    button.danger:hover { background: #b91c1c; }
+
+    button:disabled, .download-link.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .result-box {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fafafa;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      font-size: 12px;
+      color: #111827;
+      min-height: 72px;
+    }
+
+    .preview-wrap {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 14px;
+      align-items: start;
+      margin-top: 14px;
+    }
+
+    @media (max-width: 640px) {
+      .preview-wrap { grid-template-columns: 1fr; }
+    }
+
+    .preview {
+      width: 100%;
+      max-width: 220px;
+      min-height: 140px;
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      background: repeating-conic-gradient(#f3f4f6 0% 25%, #ffffff 0% 50%) 50% / 20px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      padding: 8px;
+    }
+
+    .preview img {
+      max-width: 100%;
+      max-height: 220px;
+      display: block;
+    }
+
+    .meta {
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      font-size: 12px;
+      color: #374151;
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+
+    .status {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f9fafb;
+      border: 1px solid var(--line);
+      font-size: 13px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .status.success { color: var(--success); border-color: #a7f3d0; background: #ecfdf5; }
+    .status.error { color: var(--danger); border-color: #fecaca; background: #fef2f2; }
+    .small { font-size: 12px; color: var(--muted); }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Image Base64 Transfer</h1>
+    <p>純前端工具。圖片與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。</p>
+
+    <div class="notice">
+      建議流程：圖片 → 匯出 Base64 txt → Export to GitHub → 另一端 Import from GitHub → 還原圖片。GitHub Token 不會被存進瀏覽器儲存空間，但會存在目前頁面的記憶體中直到重新整理。
+    </div>
+
+    <section class="card">
+      <h2>GitHub Settings</h2>
+      <p>指定要讀寫的 Repo 與檔案路徑。Export to GitHub 會更新這個檔案並建立 commit；Import from GitHub 會讀取同一個檔案。</p>
+
+      <div class="row-3">
+        <div>
+          <label for="githubOwner">Owner<span class="hint">GitHub 帳號或組織名稱，例如 octocat。</span></label>
+          <input id="githubOwner" type="text" placeholder="owner" autocomplete="off" />
+        </div>
+        <div>
+          <label for="githubRepo">Repo<span class="hint">Repository 名稱，不包含 owner。</span></label>
+          <input id="githubRepo" type="text" placeholder="repo" autocomplete="off" />
+        </div>
+        <div>
+          <label for="githubBranch">Branch<span class="hint">目標分支，例如 main。留空會使用 GitHub API 預設分支。</span></label>
+          <input id="githubBranch" type="text" value="main" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="githubPath">File Path<span class="hint">Repo 內的 txt 檔路徑，例如 transfers/ImageBase64_Export.txt。</span></label>
+          <input id="githubPath" type="text" value="ImageBase64_Export.txt" autocomplete="off" />
+        </div>
+        <div>
+          <label for="githubToken">Fine-grained Token / PAT<span class="hint">需要 Contents: Read and write 權限。私有 Repo 也需要對該 Repo 有權限。</span></label>
+          <input id="githubToken" type="password" placeholder="github_pat_..." autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="githubCommitMessage">Commit Message<span class="hint">Export to GitHub 時使用的 commit message。</span></label>
+          <input id="githubCommitMessage" type="text" value="Update image base64 transfer text" />
+        </div>
+        <div>
+          <label for="githubAuthorName">Commit Author Optional<span class="hint">可留空。若填 name/email，會傳給 GitHub API 作為 commit author。</span></label>
+          <input id="githubAuthorName" type="text" placeholder="Author name optional" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="githubAuthorEmail">Author Email Optional<span class="hint">可留空。若填 author name，建議同時填 email。</span></label>
+          <input id="githubAuthorEmail" type="text" placeholder="author@example.com" autocomplete="off" />
+        </div>
+        <div>
+          <label for="githubApiVersion">GitHub API Version<span class="hint">GitHub REST API 版本 header。通常不用改。</span></label>
+          <input id="githubApiVersion" type="text" value="2022-11-28" />
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="saveGithubSettingsButton" class="secondary">Save GitHub Settings</button>
+        <button id="loadGithubSettingsButton" class="secondary">Load Saved Settings</button>
+        <button id="clearGithubSettingsButton" class="danger">Clear Saved Settings</button>
+      </div>
+
+      <label style="display:flex; align-items:flex-start; gap:8px; font-weight:500;">
+        <input id="rememberGithubToken" type="checkbox" style="width:auto; margin-top:4px;" />
+        <span>
+          Remember Token in this browser
+          <span class="hint">預設不保存 Token。勾選後會把 Token 存到 localStorage，方便但有外洩風險；只建議在個人離線環境使用。</span>
+        </span>
+      </label>
+
+      <div id="githubStatus" class="status">GitHub idle.</div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Export：圖片 → Base64 文字</h2>
+        <p>選擇圖片檔後，工具會直接讀取原始檔案 bytes 並轉成 Base64。這是檔案級轉換，保真度最高。</p>
+
+        <label for="exportFile">Source Image File<span class="hint">選擇要轉成文字的圖片。預覽取決於瀏覽器支援，但 Base64 轉換會保留原始檔案 bytes。</span></label>
+        <input id="exportFile" type="file" accept="image/*,.tga,.exr" />
+
+        <div class="row">
+          <div>
+            <label for="lineLength">Base64 Line Length<span class="hint">每行 Base64 字元數。文字傳輸環境容易斷行時，建議維持 8000 或更小。</span></label>
+            <input id="lineLength" type="number" min="256" step="1" value="8000" />
+          </div>
+          <div>
+            <label for="exportFileName">Output Txt File Name<span class="hint">下載 txt 時使用的檔名。</span></label>
+            <input id="exportFileName" type="text" value="ImageBase64_Export.txt" />
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button id="encodeButton">Export To Base64 Text</button>
+          <button id="exportToGithubButton">Export to GitHub</button>
+          <a id="downloadTxtLink" class="download-link disabled" href="#" download="ImageBase64_Export.txt">Download Txt</a>
+          <button id="copyExportTextButton" class="secondary" disabled>Copy Text</button>
+          <button id="clearExportButton" class="secondary">Clear</button>
+        </div>
+
+        <div class="preview-wrap">
+          <div class="preview" id="exportPreview">No preview</div>
+          <div>
+            <h3>Export Metadata</h3>
+            <div class="meta" id="exportMeta">No image loaded.</div>
+          </div>
+        </div>
+
+        <label for="exportTextOutput">Generated Txt Content<span class="hint">這裡會產生完整 txt 內容，包含 metadata、SHA256、BASE64_BEGIN / BASE64_END。</span></label>
+        <textarea id="exportTextOutput" readonly></textarea>
+
+        <div id="exportStatus" class="status">Idle.</div>
+      </section>
+
+      <section class="card">
+        <h2>Import：Base64 文字 → 圖片</h2>
+        <p>可匯入 txt 檔、直接貼上整份 txt 內容，或從 GitHub 指定檔案讀取。</p>
+
+        <label for="importMode">Input Mode<span class="hint">Txt File：選擇文字檔。Text Field：直接貼上整份文字內容。</span></label>
+        <select id="importMode">
+          <option value="file">Txt File</option>
+          <option value="text">Text Field</option>
+        </select>
+
+        <div id="importFilePanel">
+          <label for="importTxtFile">Base64 Txt File<span class="hint">選擇由本工具或 Unity 版本輸出的 txt，也可選擇只包含純 Base64 的 txt。</span></label>
+          <input id="importTxtFile" type="file" accept=".txt,text/plain" />
+        </div>
+
+        <div id="importTextPanel" class="hidden">
+          <label for="importTextInput">Full Txt Content<span class="hint">直接貼上完整 txt 內容。可以包含 metadata，也可以只貼純 Base64。</span></label>
+          <textarea id="importTextInput" placeholder="Paste full exported txt content or plain Base64 here..."></textarea>
+          <div class="button-row">
+            <button id="clearImportTextButton" class="secondary">Clear Text Field</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="restoredFileName">Restored Image File Name<span class="hint">下載還原圖片時使用的檔名。副檔名要符合原始圖片格式，例如 .png / .jpg / .webp。</span></label>
+            <input id="restoredFileName" type="text" value="ImageBase64_Restored.png" />
+          </div>
+          <div>
+            <label for="strictValidation">SHA256 / Length Validation<span class="hint">開啟後，若 txt 內有 SHA256 或 BYTE_LENGTH，會檢查資料是否完整。</span></label>
+            <select id="strictValidation">
+              <option value="true" selected>Enabled</option>
+              <option value="false">Disabled</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button id="decodeButton">Import Base64 Text To Image</button>
+          <button id="importFromGithubButton">Import from GitHub</button>
+          <a id="downloadImageLink" class="download-link disabled" href="#" download="ImageBase64_Restored.png">Download Image</a>
+          <button id="copyImportedMetaButton" class="secondary" disabled>Copy Metadata</button>
+          <button id="clearImportButton" class="secondary">Clear</button>
+        </div>
+
+        <div class="preview-wrap">
+          <div class="preview" id="importPreview">No preview</div>
+          <div>
+            <h3>Import Metadata</h3>
+            <div class="meta" id="importMeta">No image decoded.</div>
+          </div>
+        </div>
+
+        <div id="importStatus" class="status">Idle.</div>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top: 18px;">
+      <h2>格式說明</h2>
+      <p>本工具輸出的 txt 格式如下。Unity 版工具與這個網頁版可以互相讀取。</p>
+      <div class="result-box">UNITY_IMAGE_BASE64_TRANSFER_V1
+CREATED_UTC=2026-05-19T00:00:00Z
+SOURCE_MODE=RawImageFileEncode
+SOURCE=example.png
+FORMAT=PNG
+WIDTH=1024
+HEIGHT=1024
+BYTE_LENGTH=123456
+BASE64_LENGTH=164608
+LINE_LENGTH=8000
+SHA256=...
+BASE64_BEGIN
+iVBORw0KGgoAAAANSUhEUgAA...
+BASE64_END</div>
+      <p class="small">注意：Base64 不是壓縮，通常會比原始檔案大約三分之一。大圖建議用 txt 檔或 GitHub 同步，不要直接貼到輸入框。</p>
+    </section>
+  </main>
+
+  <script>
+    const HEADER = "UNITY_IMAGE_BASE64_TRANSFER_V1";
+    const BASE64_BEGIN = "BASE64_BEGIN";
+    const BASE64_END = "BASE64_END";
+
+    const githubOwner = document.getElementById("githubOwner");
+    const githubRepo = document.getElementById("githubRepo");
+    const githubBranch = document.getElementById("githubBranch");
+    const githubPath = document.getElementById("githubPath");
+    const githubToken = document.getElementById("githubToken");
+    const githubCommitMessage = document.getElementById("githubCommitMessage");
+    const githubAuthorName = document.getElementById("githubAuthorName");
+    const githubAuthorEmail = document.getElementById("githubAuthorEmail");
+    const githubApiVersion = document.getElementById("githubApiVersion");
+    const githubStatus = document.getElementById("githubStatus");
+    const saveGithubSettingsButton = document.getElementById("saveGithubSettingsButton");
+    const loadGithubSettingsButton = document.getElementById("loadGithubSettingsButton");
+    const clearGithubSettingsButton = document.getElementById("clearGithubSettingsButton");
+    const rememberGithubToken = document.getElementById("rememberGithubToken");
+    const GITHUB_SETTINGS_STORAGE_KEY = "imageBase64Transfer.githubSettings.v1";
+
+    const exportFile = document.getElementById("exportFile");
+    const lineLengthInput = document.getElementById("lineLength");
+    const exportFileNameInput = document.getElementById("exportFileName");
+    const encodeButton = document.getElementById("encodeButton");
+    const exportToGithubButton = document.getElementById("exportToGithubButton");
+    const downloadTxtLink = document.getElementById("downloadTxtLink");
+    const copyExportTextButton = document.getElementById("copyExportTextButton");
+    const clearExportButton = document.getElementById("clearExportButton");
+    const exportPreview = document.getElementById("exportPreview");
+    const exportMeta = document.getElementById("exportMeta");
+    const exportTextOutput = document.getElementById("exportTextOutput");
+    const exportStatus = document.getElementById("exportStatus");
+
+    const importMode = document.getElementById("importMode");
+    const importFilePanel = document.getElementById("importFilePanel");
+    const importTextPanel = document.getElementById("importTextPanel");
+    const importTxtFile = document.getElementById("importTxtFile");
+    const importTextInput = document.getElementById("importTextInput");
+    const clearImportTextButton = document.getElementById("clearImportTextButton");
+    const restoredFileNameInput = document.getElementById("restoredFileName");
+    const strictValidationInput = document.getElementById("strictValidation");
+    const decodeButton = document.getElementById("decodeButton");
+    const importFromGithubButton = document.getElementById("importFromGithubButton");
+    const downloadImageLink = document.getElementById("downloadImageLink");
+    const copyImportedMetaButton = document.getElementById("copyImportedMetaButton");
+    const clearImportButton = document.getElementById("clearImportButton");
+    const importPreview = document.getElementById("importPreview");
+    const importMeta = document.getElementById("importMeta");
+    const importStatus = document.getElementById("importStatus");
+
+    let exportTxtObjectUrl = null;
+    let importImageObjectUrl = null;
+    let lastImportMetadata = "";
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadGithubSettingsFromStorage(false);
+    });
+
+    saveGithubSettingsButton.addEventListener("click", () => saveGithubSettingsToStorage(true));
+    loadGithubSettingsButton.addEventListener("click", () => loadGithubSettingsFromStorage(true));
+    clearGithubSettingsButton.addEventListener("click", clearGithubSettingsFromStorage);
+
+    importMode.addEventListener("change", () => {
+      const mode = importMode.value;
+      importFilePanel.classList.toggle("hidden", mode !== "file");
+      importTextPanel.classList.toggle("hidden", mode !== "text");
+    });
+
+    encodeButton.addEventListener("click", encodeSelectedImageToText);
+    exportToGithubButton.addEventListener("click", exportGeneratedTextToGithub);
+    decodeButton.addEventListener("click", decodeBase64TextToImage);
+    importFromGithubButton.addEventListener("click", importFromGithubAndDecode);
+    clearExportButton.addEventListener("click", clearExport);
+    clearImportButton.addEventListener("click", clearImport);
+    clearImportTextButton.addEventListener("click", () => {
+      importTextInput.value = "";
+      setStatus(importStatus, "Text field cleared.", "");
+    });
+
+    copyExportTextButton.addEventListener("click", async () => {
+      await copyToClipboard(exportTextOutput.value, exportStatus, "Export text copied.");
+    });
+
+    copyImportedMetaButton.addEventListener("click", async () => {
+      await copyToClipboard(lastImportMetadata, importStatus, "Import metadata copied.");
+    });
+
+    exportFile.addEventListener("change", () => {
+      const file = exportFile.files && exportFile.files[0];
+      if (!file) return;
+      renderFilePreview(file, exportPreview);
+      exportMeta.textContent = buildBasicFileMeta(file);
+      if (!githubPath.value.trim()) githubPath.value = sanitizeFileName(file.name + ".txt", "ImageBase64_Export.txt");
+    });
+
+    async function encodeSelectedImageToText() {
+      try {
+        const file = exportFile.files && exportFile.files[0];
+        if (!file) throw new Error("No source image file selected.");
+
+        const lineLength = Math.max(256, parseInt(lineLengthInput.value || "8000", 10));
+        lineLengthInput.value = String(lineLength);
+
+        const arrayBuffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        const base64 = uint8ArrayToBase64(bytes);
+        const sha256 = await calculateSHA256(bytes);
+        const imageSize = await getImageSizeFromFile(file);
+        const extension = getExtension(file.name).toUpperCase() || "UNKNOWN";
+        const createdUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+
+        const text = buildExportText({
+          createdUtc,
+          source: file.name,
+          format: extension,
+          width: imageSize.width,
+          height: imageSize.height,
+          byteLength: bytes.byteLength,
+          base64Length: base64.length,
+          lineLength,
+          sha256,
+          base64
+        });
+
+        exportTextOutput.value = text;
+        exportMeta.textContent = [
+          `File: ${file.name}`,
+          `Format: ${extension}`,
+          `MIME: ${file.type || "unknown"}`,
+          `Size: ${imageSize.width || 0} x ${imageSize.height || 0}`,
+          `Image Bytes: ${bytes.byteLength}`,
+          `Base64 Length: ${base64.length}`,
+          `SHA256: ${sha256}`
+        ].join("\n");
+
+        const outputName = sanitizeFileName(exportFileNameInput.value || "ImageBase64_Export.txt", "ImageBase64_Export.txt");
+        exportFileNameInput.value = outputName;
+        setDownloadLink(downloadTxtLink, text, "text/plain;charset=utf-8", outputName, "Download Txt");
+        copyExportTextButton.disabled = false;
+        setStatus(exportStatus, "Export succeeded.", "success");
+        return text;
+      } catch (error) {
+        setStatus(exportStatus, `Export failed:\n${error.message}`, "error");
+        throw error;
+      }
+    }
+
+    async function exportGeneratedTextToGithub() {
+      try {
+        let text = exportTextOutput.value;
+        if (!text.trim()) text = await encodeSelectedImageToText();
+        if (!text.trim()) throw new Error("No generated text to export.");
+
+        const settings = getGithubSettings();
+        setStatus(githubStatus, "Preparing GitHub update...", "");
+
+        const existing = await githubGetContent(settings, true);
+        const textBase64 = utf8ToBase64(text);
+
+        const body = {
+          message: settings.commitMessage,
+          content: textBase64
+        };
+
+        if (settings.branch) body.branch = settings.branch;
+        if (existing && existing.sha) body.sha = existing.sha;
+        if (settings.authorName || settings.authorEmail) {
+          if (!settings.authorName || !settings.authorEmail) {
+            throw new Error("Author name and author email must be filled together, or both left empty.");
+          }
+          body.author = { name: settings.authorName, email: settings.authorEmail };
+          body.committer = { name: settings.authorName, email: settings.authorEmail };
+        }
+
+        const response = await fetch(githubContentUrl(settings), {
+          method: "PUT",
+          headers: githubHeaders(settings),
+          body: JSON.stringify(body)
+        });
+
+        const data = await readGithubResponse(response);
+        if (!response.ok) throw new Error(formatGithubError("GitHub update failed", data));
+
+        const commitSha = data.commit && data.commit.sha ? data.commit.sha : "unknown";
+        const htmlUrl = data.content && data.content.html_url ? data.content.html_url : "";
+        setStatus(githubStatus, `Export to GitHub succeeded.\nPath: ${settings.path}\nCommit: ${commitSha}${htmlUrl ? "\nURL: " + htmlUrl : ""}`, "success");
+      } catch (error) {
+        setStatus(githubStatus, `Export to GitHub failed:\n${error.message}`, "error");
+      }
+    }
+
+    async function importFromGithubAndDecode() {
+      try {
+        const settings = getGithubSettings();
+        setStatus(githubStatus, "Fetching GitHub file...", "");
+
+        const data = await githubGetContent(settings, false);
+        if (!data || data.type !== "file") throw new Error("GitHub path is not a file.");
+        if (!data.content) throw new Error("GitHub response has no content field. File may be too large for the Contents API response.");
+
+        const text = base64ToUtf8(data.content.replace(/\s+/g, ""));
+        importMode.value = "text";
+        importFilePanel.classList.add("hidden");
+        importTextPanel.classList.remove("hidden");
+        importTextInput.value = text;
+
+        setStatus(githubStatus, `Import from GitHub succeeded.\nPath: ${settings.path}\nSHA: ${data.sha || "unknown"}`, "success");
+        await decodeContentToImage(text, "GitHub: " + settings.path);
+      } catch (error) {
+        setStatus(githubStatus, `Import from GitHub failed:\n${error.message}`, "error");
+      }
+    }
+
+    async function decodeBase64TextToImage() {
+      try {
+        const content = await getImportContent();
+        await decodeContentToImage(content, importMode.value === "file" ? "Txt File Input" : "Text Field Input");
+      } catch (error) {
+        setStatus(importStatus, `Import failed:\n${error.message}`, "error");
+      }
+    }
+
+    async function decodeContentToImage(content, inputDescription) {
+      if (!content || !content.trim()) throw new Error("Input text is empty.");
+
+      const parsed = parseBase64TextContent(content);
+      if (!parsed.base64Text) throw new Error("No Base64 content found. Provide full exported text or plain Base64.");
+
+      const bytes = base64ToUint8Array(parsed.base64Text);
+      const actualSha256 = await calculateSHA256(bytes);
+      const strictValidation = strictValidationInput.value === "true";
+
+      if (strictValidation && parsed.sha256 && parsed.sha256.toLowerCase() !== actualSha256.toLowerCase()) {
+        throw new Error(`SHA256 mismatch.\nExpected: ${parsed.sha256}\nActual:   ${actualSha256}`);
+      }
+
+      if (strictValidation && parsed.byteLength > 0 && parsed.byteLength !== bytes.byteLength) {
+        throw new Error(`BYTE_LENGTH mismatch.\nExpected: ${parsed.byteLength}\nActual:   ${bytes.byteLength}`);
+      }
+
+      const mimeType = getMimeTypeFromFormat(parsed.format, bytes);
+      const blob = new Blob([bytes], { type: mimeType });
+      const restoredName = sanitizeFileName(restoredFileNameInput.value || suggestedRestoredName(parsed.format), suggestedRestoredName(parsed.format));
+      restoredFileNameInput.value = restoredName;
+
+      if (importImageObjectUrl) URL.revokeObjectURL(importImageObjectUrl);
+      importImageObjectUrl = URL.createObjectURL(blob);
+
+      downloadImageLink.href = importImageObjectUrl;
+      downloadImageLink.download = restoredName;
+      downloadImageLink.textContent = "Download Image";
+      downloadImageLink.classList.remove("disabled");
+
+      renderBlobPreview(blob, importPreview);
+
+      const loadedSize = await getImageSizeFromBlob(blob).catch(() => ({ width: 0, height: 0 }));
+      lastImportMetadata = [
+        `Input: ${inputDescription}`,
+        `Format: ${parsed.format || "UNKNOWN"}`,
+        `Expected Size: ${(parsed.width || 0)} x ${(parsed.height || 0)}`,
+        `Loaded Size: ${(loadedSize.width || 0)} x ${(loadedSize.height || 0)}`,
+        `Image Bytes: ${bytes.byteLength}`,
+        `SHA256: ${actualSha256}`,
+        parsed.sha256 ? `SHA256 Validation: ${parsed.sha256.toLowerCase() === actualSha256.toLowerCase() ? "PASS" : "FAIL"}` : "SHA256 Validation: no expected hash in text",
+        parsed.byteLength > 0 ? `BYTE_LENGTH Validation: ${parsed.byteLength === bytes.byteLength ? "PASS" : "FAIL"}` : "BYTE_LENGTH Validation: no expected length in text"
+      ].join("\n");
+
+      importMeta.textContent = lastImportMetadata;
+      copyImportedMetaButton.disabled = false;
+      setStatus(importStatus, "Import succeeded. You can now download the restored image.", "success");
+    }
+
+    async function getImportContent() {
+      if (importMode.value === "file") {
+        const file = importTxtFile.files && importTxtFile.files[0];
+        if (!file) throw new Error("No txt file selected.");
+        return await file.text();
+      }
+      return importTextInput.value;
+    }
+
+    function saveGithubSettingsToStorage(showStatus) {
+      try {
+        const settings = {
+          owner: githubOwner.value.trim(),
+          repo: githubRepo.value.trim(),
+          branch: githubBranch.value.trim(),
+          path: githubPath.value.trim(),
+          commitMessage: githubCommitMessage.value.trim(),
+          authorName: githubAuthorName.value.trim(),
+          authorEmail: githubAuthorEmail.value.trim(),
+          apiVersion: githubApiVersion.value.trim() || "2022-11-28",
+          rememberToken: rememberGithubToken.checked,
+          token: rememberGithubToken.checked ? githubToken.value.trim() : ""
+        };
+
+        localStorage.setItem(GITHUB_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+
+        if (showStatus) {
+          const tokenMessage = settings.rememberToken
+            ? "Token was saved to this browser localStorage."
+            : "Token was not saved.";
+          setStatus(githubStatus, `GitHub settings saved.
+${tokenMessage}`, "success");
+        }
+      } catch (error) {
+        if (showStatus) setStatus(githubStatus, `Save settings failed:
+${error.message}`, "error");
+      }
+    }
+
+    function loadGithubSettingsFromStorage(showStatus) {
+      try {
+        const raw = localStorage.getItem(GITHUB_SETTINGS_STORAGE_KEY);
+        if (!raw) {
+          if (showStatus) setStatus(githubStatus, "No saved GitHub settings found.", "");
+          return;
+        }
+
+        const settings = JSON.parse(raw);
+        githubOwner.value = settings.owner || "";
+        githubRepo.value = settings.repo || "";
+        githubBranch.value = settings.branch || "main";
+        githubPath.value = settings.path || "ImageBase64_Export.txt";
+        githubCommitMessage.value = settings.commitMessage || "Update image base64 transfer text";
+        githubAuthorName.value = settings.authorName || "";
+        githubAuthorEmail.value = settings.authorEmail || "";
+        githubApiVersion.value = settings.apiVersion || "2022-11-28";
+        rememberGithubToken.checked = !!settings.rememberToken;
+        githubToken.value = settings.rememberToken && settings.token ? settings.token : "";
+
+        if (showStatus) {
+          const tokenMessage = settings.rememberToken && settings.token
+            ? "Saved token loaded."
+            : "No token loaded. Paste token before GitHub API operations.";
+          setStatus(githubStatus, `GitHub settings loaded.
+${tokenMessage}`, "success");
+        }
+      } catch (error) {
+        if (showStatus) setStatus(githubStatus, `Load settings failed:
+${error.message}`, "error");
+      }
+    }
+
+    function clearGithubSettingsFromStorage() {
+      localStorage.removeItem(GITHUB_SETTINGS_STORAGE_KEY);
+      githubOwner.value = "";
+      githubRepo.value = "";
+      githubBranch.value = "main";
+      githubPath.value = "ImageBase64_Export.txt";
+      githubToken.value = "";
+      githubCommitMessage.value = "Update image base64 transfer text";
+      githubAuthorName.value = "";
+      githubAuthorEmail.value = "";
+      githubApiVersion.value = "2022-11-28";
+      rememberGithubToken.checked = false;
+      setStatus(githubStatus, "Saved GitHub settings cleared.", "success");
+    }
+
+    function getGithubSettings() {
+      const settings = {
+        owner: githubOwner.value.trim(),
+        repo: githubRepo.value.trim(),
+        branch: githubBranch.value.trim(),
+        path: githubPath.value.trim().replace(/^\/+/, ""),
+        token: githubToken.value.trim(),
+        commitMessage: githubCommitMessage.value.trim() || "Update image base64 transfer text",
+        authorName: githubAuthorName.value.trim(),
+        authorEmail: githubAuthorEmail.value.trim(),
+        apiVersion: githubApiVersion.value.trim() || "2022-11-28"
+      };
+
+      if (!settings.owner) throw new Error("GitHub Owner is required.");
+      if (!settings.repo) throw new Error("GitHub Repo is required.");
+      if (!settings.path) throw new Error("GitHub File Path is required.");
+      if (!settings.token) throw new Error("GitHub Token is required.");
+      return settings;
+    }
+
+    function githubContentUrl(settings) {
+      const encodedPath = settings.path.split("/").map(encodeURIComponent).join("/");
+      const base = `https://api.github.com/repos/${encodeURIComponent(settings.owner)}/${encodeURIComponent(settings.repo)}/contents/${encodedPath}`;
+      return settings.branch ? `${base}?ref=${encodeURIComponent(settings.branch)}` : base;
+    }
+
+    function githubHeaders(settings) {
+      return {
+        "Accept": "application/vnd.github+json",
+        "Authorization": `Bearer ${settings.token}`,
+        "X-GitHub-Api-Version": settings.apiVersion,
+        "Content-Type": "application/json"
+      };
+    }
+
+    async function githubGetContent(settings, allowMissing) {
+      const response = await fetch(githubContentUrl(settings), {
+        method: "GET",
+        headers: githubHeaders(settings)
+      });
+
+      const data = await readGithubResponse(response);
+      if (response.status === 404 && allowMissing) return null;
+      if (!response.ok) throw new Error(formatGithubError("GitHub get content failed", data));
+      return data;
+    }
+
+    async function readGithubResponse(response) {
+      const text = await response.text();
+      if (!text) return {};
+      try { return JSON.parse(text); } catch { return { message: text }; }
+    }
+
+    function formatGithubError(prefix, data) {
+      const message = data && data.message ? data.message : "Unknown error";
+      const documentation = data && data.documentation_url ? `\nDocs: ${data.documentation_url}` : "";
+      return `${prefix}: ${message}${documentation}`;
+    }
+
+    function buildExportText(data) {
+      const lines = [];
+      lines.push(HEADER);
+      lines.push(`CREATED_UTC=${data.createdUtc}`);
+      lines.push("SOURCE_MODE=RawImageFileEncode");
+      lines.push(`SOURCE=${data.source}`);
+      lines.push(`FORMAT=${data.format}`);
+      lines.push(`WIDTH=${data.width || 0}`);
+      lines.push(`HEIGHT=${data.height || 0}`);
+      lines.push(`BYTE_LENGTH=${data.byteLength}`);
+      lines.push(`BASE64_LENGTH=${data.base64Length}`);
+      lines.push(`LINE_LENGTH=${data.lineLength}`);
+      lines.push(`SHA256=${data.sha256}`);
+      lines.push(BASE64_BEGIN);
+      for (let i = 0; i < data.base64.length; i += data.lineLength) lines.push(data.base64.slice(i, i + data.lineLength));
+      lines.push(BASE64_END);
+      return lines.join("\n");
+    }
+
+    function parseBase64TextContent(content) {
+      const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      const lines = normalized.split("\n");
+      const parsed = { format: "UNKNOWN", width: 0, height: 0, byteLength: 0, base64Length: 0, sha256: "", base64Text: "" };
+      let readingBase64 = false;
+      let foundBase64Block = false;
+      const base64Parts = [];
+
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        if (line === BASE64_BEGIN) { readingBase64 = true; foundBase64Block = true; continue; }
+        if (line === BASE64_END) { readingBase64 = false; break; }
+        if (readingBase64) { base64Parts.push(line); continue; }
+
+        const equalsIndex = line.indexOf("=");
+        if (equalsIndex <= 0) continue;
+        const key = line.slice(0, equalsIndex).trim();
+        const value = line.slice(equalsIndex + 1).trim();
+        switch (key) {
+          case "FORMAT": parsed.format = value || "UNKNOWN"; break;
+          case "WIDTH": parsed.width = parseInt(value, 10) || 0; break;
+          case "HEIGHT": parsed.height = parseInt(value, 10) || 0; break;
+          case "BYTE_LENGTH": parsed.byteLength = parseInt(value, 10) || 0; break;
+          case "BASE64_LENGTH": parsed.base64Length = parseInt(value, 10) || 0; break;
+          case "SHA256": parsed.sha256 = value; break;
+        }
+      }
+
+      parsed.base64Text = foundBase64Block ? base64Parts.join("") : stripPlainBase64Text(content);
+      if (parsed.format === "UNKNOWN") parsed.format = detectFormatFromBytesSafe(parsed.base64Text);
+      return parsed;
+    }
+
+    function stripPlainBase64Text(content) { return content.replace(/\s+/g, ""); }
+
+    function uint8ArrayToBase64(bytes) {
+      const chunkSize = 0x8000;
+      let binary = "";
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk);
+      }
+      return btoa(binary);
+    }
+
+    function base64ToUint8Array(base64) {
+      const clean = base64.replace(/\s+/g, "");
+      const binary = atob(clean);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes;
+    }
+
+    function utf8ToBase64(text) {
+      const bytes = new TextEncoder().encode(text);
+      return uint8ArrayToBase64(bytes);
+    }
+
+    function base64ToUtf8(base64) {
+      const bytes = base64ToUint8Array(base64);
+      return new TextDecoder("utf-8").decode(bytes);
+    }
+
+    async function calculateSHA256(bytes) {
+      const hashBuffer = await crypto.subtle.digest("SHA-256", bytes);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    function renderFilePreview(file, container) {
+      if (container.dataset.url) URL.revokeObjectURL(container.dataset.url);
+      if (!file.type.startsWith("image/")) { container.textContent = "Preview unsupported"; return; }
+      const url = URL.createObjectURL(file);
+      container.dataset.url = url;
+      container.innerHTML = "";
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = "Image preview";
+      img.onerror = () => { container.textContent = "Preview failed"; };
+      container.appendChild(img);
+    }
+
+    function renderBlobPreview(blob, container) {
+      if (container.dataset.url) URL.revokeObjectURL(container.dataset.url);
+      const url = URL.createObjectURL(blob);
+      container.dataset.url = url;
+      container.innerHTML = "";
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = "Restored image preview";
+      img.onerror = () => { container.textContent = "Preview unsupported, but download may still be valid"; };
+      container.appendChild(img);
+    }
+
+    function getImageSizeFromFile(file) {
+      return new Promise(resolve => {
+        if (!file.type.startsWith("image/")) { resolve({ width: 0, height: 0 }); return; }
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => { const size = { width: img.naturalWidth, height: img.naturalHeight }; URL.revokeObjectURL(url); resolve(size); };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve({ width: 0, height: 0 }); };
+        img.src = url;
+      });
+    }
+
+    function getImageSizeFromBlob(blob) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => { const size = { width: img.naturalWidth, height: img.naturalHeight }; URL.revokeObjectURL(url); resolve(size); };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Image preview loading failed.")); };
+        img.src = url;
+      });
+    }
+
+    function buildBasicFileMeta(file) {
+      return [`File: ${file.name}`, `MIME: ${file.type || "unknown"}`, `Bytes: ${file.size}`, `Last Modified: ${file.lastModified ? new Date(file.lastModified).toISOString() : "unknown"}`].join("\n");
+    }
+
+    function setDownloadLink(link, content, mimeType, fileName, label) {
+      if (exportTxtObjectUrl) URL.revokeObjectURL(exportTxtObjectUrl);
+      const blob = new Blob([content], { type: mimeType });
+      exportTxtObjectUrl = URL.createObjectURL(blob);
+      link.href = exportTxtObjectUrl;
+      link.download = fileName;
+      link.textContent = label;
+      link.classList.remove("disabled");
+    }
+
+    function setStatus(element, message, type) {
+      element.textContent = message;
+      element.classList.remove("success", "error");
+      if (type) element.classList.add(type);
+    }
+
+    async function copyToClipboard(text, statusElement, successMessage) {
+      try {
+        if (!text) throw new Error("Nothing to copy.");
+        await navigator.clipboard.writeText(text);
+        setStatus(statusElement, successMessage, "success");
+      } catch (error) {
+        setStatus(statusElement, `Copy failed:\n${error.message}`, "error");
+      }
+    }
+
+    function clearExport() {
+      exportFile.value = "";
+      exportPreview.innerHTML = "No preview";
+      exportMeta.textContent = "No image loaded.";
+      exportTextOutput.value = "";
+      downloadTxtLink.classList.add("disabled");
+      downloadTxtLink.href = "#";
+      copyExportTextButton.disabled = true;
+      if (exportTxtObjectUrl) { URL.revokeObjectURL(exportTxtObjectUrl); exportTxtObjectUrl = null; }
+      setStatus(exportStatus, "Cleared.", "");
+    }
+
+    function clearImport() {
+      importTxtFile.value = "";
+      importTextInput.value = "";
+      importPreview.innerHTML = "No preview";
+      importMeta.textContent = "No image decoded.";
+      lastImportMetadata = "";
+      downloadImageLink.classList.add("disabled");
+      downloadImageLink.href = "#";
+      copyImportedMetaButton.disabled = true;
+      if (importImageObjectUrl) { URL.revokeObjectURL(importImageObjectUrl); importImageObjectUrl = null; }
+      setStatus(importStatus, "Cleared.", "");
+    }
+
+    function getExtension(fileName) {
+      const index = fileName.lastIndexOf(".");
+      return index < 0 ? "" : fileName.slice(index + 1);
+    }
+
+    function sanitizeFileName(name, fallback) {
+      const cleaned = name.trim().replace(/[\\/:*?"<>|]/g, "_");
+      return cleaned || fallback;
+    }
+
+    function suggestedRestoredName(format) {
+      const ext = (format || "png").toLowerCase();
+      const normalized = ext === "jpeg" ? "jpg" : ext;
+      return `ImageBase64_Restored.${normalized || "png"}`;
+    }
+
+    function getMimeTypeFromFormat(format, bytes) {
+      const upper = (format || "").toUpperCase();
+      switch (upper) {
+        case "PNG": return "image/png";
+        case "JPG":
+        case "JPEG": return "image/jpeg";
+        case "WEBP": return "image/webp";
+        case "GIF": return "image/gif";
+        case "BMP": return "image/bmp";
+        case "SVG": return "image/svg+xml";
+        default: return getMimeTypeFromBytes(bytes) || "application/octet-stream";
+      }
+    }
+
+    function getMimeTypeFromBytes(bytes) {
+      if (!bytes || bytes.length < 12) return "";
+      if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return "image/png";
+      if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return "image/jpeg";
+      if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return "image/gif";
+      if (bytes[0] === 0x42 && bytes[1] === 0x4D) return "image/bmp";
+      if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return "image/webp";
+      return "";
+    }
+
+    function detectFormatFromBytesSafe(base64Text) {
+      try {
+        const clean = base64Text.replace(/\s+/g, "");
+        const binary = atob(clean.slice(0, 64));
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const mime = getMimeTypeFromBytes(bytes);
+        switch (mime) {
+          case "image/png": return "PNG";
+          case "image/jpeg": return "JPG";
+          case "image/gif": return "GIF";
+          case "image/bmp": return "BMP";
+          case "image/webp": return "WEBP";
+          default: return "UNKNOWN";
+        }
+      } catch {
+        return "UNKNOWN";
+      }
+    }
+  </script>
+</body>
+</html>
