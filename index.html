@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
   <title>Image Base64 Transfer</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <style>
@@ -12,6 +13,11 @@
       --text: #1f1f1f;
       --muted: #666666;
       --line: #d7d7d7;
+      --soft-bg: #fafafa;
+      --subtle-bg: #f9fafb;
+      --preview-grid-a: #f3f4f6;
+      --preview-grid-b: #ffffff;
+      --shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
       --accent: #2563eb;
       --accent-hover: #1d4ed8;
       --danger: #b91c1c;
@@ -23,6 +29,27 @@
       --radius: 12px;
     }
 
+    :root[data-theme="dark"] {
+      --bg: #0b1220;
+      --panel: #111827;
+      --text: #e5eefc;
+      --muted: #9ca3af;
+      --line: #2a3547;
+      --soft-bg: #0f172a;
+      --subtle-bg: #101927;
+      --preview-grid-a: #1f2937;
+      --preview-grid-b: #111827;
+      --shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+      --accent: #60a5fa;
+      --accent-hover: #3b82f6;
+      --danger: #f87171;
+      --success: #34d399;
+      --warning-bg: #3a2213;
+      --warning-line: #fb923c;
+      --info-bg: #13233d;
+      --info-line: #60a5fa;
+    }
+
     * { box-sizing: border-box; }
 
     body {
@@ -31,6 +58,7 @@
       background: var(--bg);
       color: var(--text);
       line-height: 1.5;
+      transition: background-color 0.2s ease, color 0.2s ease;
     }
 
     main {
@@ -60,7 +88,7 @@
       border: 1px solid var(--line);
       border-radius: var(--radius);
       padding: 18px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+      box-shadow: var(--shadow);
     }
 
     .notice {
@@ -99,7 +127,7 @@
       border: 1px solid var(--line);
       border-radius: 9px;
       padding: 10px 11px;
-      background: #ffffff;
+      background: var(--panel);
       color: var(--text);
       font: inherit;
       font-size: 14px;
@@ -165,6 +193,13 @@
     button.danger { background: #dc2626; }
     button.danger:hover { background: #b91c1c; }
 
+    :root[data-theme="dark"] button.secondary {
+      background: #243041;
+      color: #e5eefc;
+    }
+
+    :root[data-theme="dark"] button.secondary:hover { background: #314156; }
+
     button:disabled, .download-link.disabled {
       opacity: 0.5;
       cursor: not-allowed;
@@ -176,12 +211,12 @@
       padding: 12px;
       border-radius: 10px;
       border: 1px solid var(--line);
-      background: #fafafa;
+      background: var(--soft-bg);
       white-space: pre-wrap;
       overflow-wrap: anywhere;
       font-family: Consolas, Monaco, "Courier New", monospace;
       font-size: 12px;
-      color: #111827;
+      color: var(--text);
       min-height: 72px;
     }
 
@@ -203,7 +238,7 @@
       min-height: 140px;
       border: 1px dashed var(--line);
       border-radius: 10px;
-      background: repeating-conic-gradient(#f3f4f6 0% 25%, #ffffff 0% 50%) 50% / 20px 20px;
+      background: repeating-conic-gradient(var(--preview-grid-a) 0% 25%, var(--preview-grid-b) 0% 50%) 50% / 20px 20px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -223,7 +258,7 @@
     .meta {
       font-family: Consolas, Monaco, "Courier New", monospace;
       font-size: 12px;
-      color: #374151;
+      color: var(--text);
       word-break: break-all;
       white-space: pre-wrap;
     }
@@ -232,7 +267,7 @@
       margin-top: 12px;
       padding: 10px 12px;
       border-radius: 10px;
-      background: #f9fafb;
+      background: var(--subtle-bg);
       border: 1px solid var(--line);
       font-size: 13px;
       white-space: pre-wrap;
@@ -243,12 +278,95 @@
     .status.error { color: var(--danger); border-color: #fecaca; background: #fef2f2; }
     .small { font-size: 12px; color: var(--muted); }
     .hidden { display: none !important; }
+
+    :root[data-theme="dark"] .status.success { border-color: #065f46; background: #06281e; }
+    :root[data-theme="dark"] .status.error { border-color: #7f1d1d; background: #2a1113; }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+
+    .theme-switcher {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      flex-wrap: wrap;
+    }
+
+    .theme-switcher-label {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 0 4px 0 6px;
+    }
+
+    .theme-button {
+      min-height: 38px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text);
+      border: 1px solid transparent;
+    }
+
+    .theme-button:hover {
+      background: var(--soft-bg);
+      color: var(--text);
+    }
+
+    .theme-button.active {
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .theme-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      margin-right: 6px;
+      font-size: 16px;
+      line-height: 1;
+    }
   </style>
 </head>
 <body>
   <main>
-    <h1>Image Base64 Transfer</h1>
-    <p>純前端工具。圖片與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。</p>
+    <div class="topbar">
+      <div>
+        <h1>Image Base64 Transfer</h1>
+        <p>純前端工具。圖片與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。</p>
+      </div>
+
+      <div class="theme-switcher" aria-label="Theme Switcher">
+        <span class="theme-switcher-label">Theme</span>
+        <button id="themeLightButton" class="theme-button secondary" type="button" data-theme-option="light" aria-pressed="false">
+          <span class="theme-icon" aria-hidden="true">☀️</span>白天
+        </button>
+        <button id="themeDarkButton" class="theme-button secondary" type="button" data-theme-option="dark" aria-pressed="false">
+          <span class="theme-icon" aria-hidden="true">🌙</span>黑暗
+        </button>
+        <button id="themeSystemButton" class="theme-button secondary" type="button" data-theme-option="system" aria-pressed="false">
+          <span class="theme-icon" aria-hidden="true">🖥️</span>跟隨系統
+        </button>
+      </div>
+    </div>
 
     <div class="notice">
       建議流程：圖片 → 匯出 Base64 txt → Export to GitHub → 另一端 Import from GitHub → 還原圖片。GitHub Token 不會被存進瀏覽器儲存空間，但會存在目前頁面的記憶體中直到重新整理。
@@ -446,6 +564,8 @@ BASE64_END</div>
     const HEADER = "UNITY_IMAGE_BASE64_TRANSFER_V1";
     const BASE64_BEGIN = "BASE64_BEGIN";
     const BASE64_END = "BASE64_END";
+    const THEME_STORAGE_KEY = "imageBase64Transfer.theme.v1";
+    const systemThemeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 
     const githubOwner = document.getElementById("githubOwner");
     const githubRepo = document.getElementById("githubRepo");
@@ -492,18 +612,29 @@ BASE64_END</div>
     const importPreview = document.getElementById("importPreview");
     const importMeta = document.getElementById("importMeta");
     const importStatus = document.getElementById("importStatus");
+    const themeLightButton = document.getElementById("themeLightButton");
+    const themeDarkButton = document.getElementById("themeDarkButton");
+    const themeSystemButton = document.getElementById("themeSystemButton");
+    const themeButtons = [themeLightButton, themeDarkButton, themeSystemButton];
 
     let exportTxtObjectUrl = null;
     let importImageObjectUrl = null;
     let lastImportMetadata = "";
 
     window.addEventListener("DOMContentLoaded", () => {
+      initializeTheme();
       loadGithubSettingsFromStorage(false);
     });
 
     saveGithubSettingsButton.addEventListener("click", () => saveGithubSettingsToStorage(true));
     loadGithubSettingsButton.addEventListener("click", () => loadGithubSettingsFromStorage(true));
     clearGithubSettingsButton.addEventListener("click", clearGithubSettingsFromStorage);
+    themeButtons.forEach(button => {
+      button.addEventListener("click", () => setThemePreference(button.dataset.themeOption));
+    });
+    systemThemeMedia.addEventListener("change", () => {
+      if (getStoredThemePreference() === "system") applyTheme("system");
+    });
 
     importMode.addEventListener("change", () => {
       const mode = importMode.value;
@@ -998,6 +1129,33 @@ ${error.message}`, "error");
 
     function buildBasicFileMeta(file) {
       return [`File: ${file.name}`, `MIME: ${file.type || "unknown"}`, `Bytes: ${file.size}`, `Last Modified: ${file.lastModified ? new Date(file.lastModified).toISOString() : "unknown"}`].join("\n");
+    }
+
+    function initializeTheme() {
+      applyTheme(getStoredThemePreference());
+    }
+
+    function getStoredThemePreference() {
+      const saved = localStorage.getItem(THEME_STORAGE_KEY);
+      return saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
+    }
+
+    function setThemePreference(theme) {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+      applyTheme(theme);
+    }
+
+    function applyTheme(preference) {
+      const resolvedTheme = preference === "system"
+        ? (systemThemeMedia.matches ? "dark" : "light")
+        : preference;
+
+      document.documentElement.dataset.theme = resolvedTheme;
+      themeButtons.forEach(button => {
+        const isActive = button.dataset.themeOption === preference;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      });
     }
 
     function setDownloadLink(link, content, mimeType, fileName, label) {
