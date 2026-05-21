@@ -278,6 +278,7 @@
     .status.error { color: var(--danger); border-color: #fecaca; background: #fef2f2; }
     .small { font-size: 12px; color: var(--muted); }
     .hidden { display: none !important; }
+    .mono { font-family: Consolas, Monaco, "Courier New", monospace; }
 
     :root[data-theme="dark"] .status.success { border-color: #065f46; background: #06281e; }
     :root[data-theme="dark"] .status.error { border-color: #7f1d1d; background: #2a1113; }
@@ -343,6 +344,20 @@
       margin-right: 6px;
       font-size: 16px;
       line-height: 1;
+    }
+
+    .batch-list {
+      margin-top: 14px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--soft-bg);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      max-height: 280px;
+      overflow-y: auto;
+      font-size: 12px;
+      color: var(--text);
     }
   </style>
 </head>
@@ -540,6 +555,31 @@
     </div>
 
     <section class="card" style="margin-top: 18px;">
+      <h2>Batch：資料夾批量匯出 / 匯入</h2>
+      <p>可一次選整個資料夾處理多張圖。`.png` 與 `.tga` 會以原始檔案 bytes 轉換，因此 `.tga` 的色版與通道資料不會因轉換而丟失。若瀏覽器支援，會先讓你選輸出資料夾；不支援時會改成逐檔下載。</p>
+
+      <div class="row">
+        <div>
+          <label for="batchExportFolder">Source Image Folder<span class="hint">選擇包含 `.png` / `.tga` 圖檔的資料夾。子資料夾也會一起掃描。</span></label>
+          <input id="batchExportFolder" type="file" webkitdirectory directory multiple accept=".png,.tga,image/png" />
+        </div>
+        <div>
+          <label for="batchImportFolder">Source Txt Folder<span class="hint">選擇包含本工具輸出 `.txt` 的資料夾。子資料夾也會一起掃描。</span></label>
+          <input id="batchImportFolder" type="file" webkitdirectory directory multiple accept=".txt,text/plain" />
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="batchExportButton">Batch Export Folder</button>
+        <button id="batchImportButton">Batch Import Folder</button>
+        <button id="clearBatchButton" class="secondary">Clear Batch Log</button>
+      </div>
+
+      <div id="batchStatus" class="status">Idle.</div>
+      <div id="batchLog" class="batch-list mono">No batch work yet.</div>
+    </section>
+
+    <section class="card" style="margin-top: 18px;">
       <h2>格式說明</h2>
       <p>本工具輸出的 txt 格式如下。Unity 版工具與這個網頁版可以互相讀取。</p>
       <div class="result-box">UNITY_IMAGE_BASE64_TRANSFER_V1
@@ -612,6 +652,13 @@ BASE64_END</div>
     const importPreview = document.getElementById("importPreview");
     const importMeta = document.getElementById("importMeta");
     const importStatus = document.getElementById("importStatus");
+    const batchExportFolder = document.getElementById("batchExportFolder");
+    const batchImportFolder = document.getElementById("batchImportFolder");
+    const batchExportButton = document.getElementById("batchExportButton");
+    const batchImportButton = document.getElementById("batchImportButton");
+    const clearBatchButton = document.getElementById("clearBatchButton");
+    const batchStatus = document.getElementById("batchStatus");
+    const batchLog = document.getElementById("batchLog");
     const themeLightButton = document.getElementById("themeLightButton");
     const themeDarkButton = document.getElementById("themeDarkButton");
     const themeSystemButton = document.getElementById("themeSystemButton");
@@ -646,8 +693,11 @@ BASE64_END</div>
     exportToGithubButton.addEventListener("click", exportGeneratedTextToGithub);
     decodeButton.addEventListener("click", decodeBase64TextToImage);
     importFromGithubButton.addEventListener("click", importFromGithubAndDecode);
+    batchExportButton.addEventListener("click", batchExportFolderToTexts);
+    batchImportButton.addEventListener("click", batchImportTextsToImages);
     clearExportButton.addEventListener("click", clearExport);
     clearImportButton.addEventListener("click", clearImport);
+    clearBatchButton.addEventListener("click", clearBatchLog);
     clearImportTextButton.addEventListener("click", () => {
       importTextInput.value = "";
       setStatus(importStatus, "Text field cleared.", "");
@@ -855,6 +905,83 @@ BASE64_END</div>
       return importTextInput.value;
     }
 
+    async function batchExportFolderToTexts() {
+      const sourceFiles = collectBatchFiles(batchExportFolder.files, [".png", ".tga"]);
+      if (!sourceFiles.length) {
+        setStatus(batchStatus, "Batch export failed:\nNo .png or .tga files found in selected folder.", "error");
+        return;
+      }
+
+      clearBatchLog();
+      appendBatchLog(`Batch export start. Files: ${sourceFiles.length}`);
+
+      try {
+        const outputDirectory = await pickOutputDirectory("batch export txt files");
+        let successCount = 0;
+
+        for (const file of sourceFiles) {
+          const exportData = await buildExportDataFromFile(file);
+          const relativePath = getRelativePath(file);
+          const targetRelativePath = replaceExtension(relativePath, ".txt");
+          const targetName = replaceExtension(file.name, ".txt");
+
+          if (outputDirectory) {
+            await writeFileToDirectory(outputDirectory, targetRelativePath, exportData.text, "text/plain;charset=utf-8");
+            appendBatchLog(`OK  EXPORT  ${relativePath} -> ${targetRelativePath}`);
+          } else {
+            downloadTextFile(exportData.text, targetName);
+            appendBatchLog(`OK  EXPORT  ${relativePath} -> download ${targetName}`);
+          }
+
+          successCount += 1;
+        }
+
+        const modeLabel = outputDirectory ? "files written to selected folder" : "download fallback used";
+        setStatus(batchStatus, `Batch export succeeded.\nProcessed: ${successCount}\nMode: ${modeLabel}`, "success");
+      } catch (error) {
+        setStatus(batchStatus, `Batch export failed:\n${error.message}`, "error");
+      }
+    }
+
+    async function batchImportTextsToImages() {
+      const txtFiles = collectBatchFiles(batchImportFolder.files, [".txt"]);
+      if (!txtFiles.length) {
+        setStatus(batchStatus, "Batch import failed:\nNo .txt files found in selected folder.", "error");
+        return;
+      }
+
+      clearBatchLog();
+      appendBatchLog(`Batch import start. Files: ${txtFiles.length}`);
+
+      try {
+        const outputDirectory = await pickOutputDirectory("restored image files");
+        let successCount = 0;
+
+        for (const file of txtFiles) {
+          const content = await file.text();
+          const decoded = await decodeTextContentToBinary(content, "Batch Txt: " + getRelativePath(file));
+          const relativePath = getRelativePath(file);
+          const targetRelativePath = replaceExtension(relativePath, "." + decoded.outputExtension);
+          const targetName = replaceExtension(file.name, "." + decoded.outputExtension);
+
+          if (outputDirectory) {
+            await writeFileToDirectory(outputDirectory, targetRelativePath, decoded.bytes, decoded.mimeType);
+            appendBatchLog(`OK  IMPORT  ${relativePath} -> ${targetRelativePath} (${decoded.sha256})`);
+          } else {
+            downloadBinaryFile(decoded.bytes, decoded.mimeType, targetName);
+            appendBatchLog(`OK  IMPORT  ${relativePath} -> download ${targetName} (${decoded.sha256})`);
+          }
+
+          successCount += 1;
+        }
+
+        const modeLabel = outputDirectory ? "files written to selected folder" : "download fallback used";
+        setStatus(batchStatus, `Batch import succeeded.\nProcessed: ${successCount}\nMode: ${modeLabel}`, "success");
+      } catch (error) {
+        setStatus(batchStatus, `Batch import failed:\n${error.message}`, "error");
+      }
+    }
+
     function saveGithubSettingsToStorage(showStatus) {
       try {
         const settings = {
@@ -1011,6 +1138,31 @@ ${error.message}`, "error");
       return lines.join("\n");
     }
 
+    async function buildExportDataFromFile(file) {
+      const lineLength = Math.max(256, parseInt(lineLengthInput.value || "8000", 10));
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      const base64 = uint8ArrayToBase64(bytes);
+      const sha256 = await calculateSHA256(bytes);
+      const extension = getExtension(file.name).toUpperCase() || "UNKNOWN";
+      const imageSize = await getImageSizeFromFile(file);
+      const createdUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+      const text = buildExportText({
+        createdUtc,
+        source: getRelativePath(file),
+        format: extension,
+        width: imageSize.width,
+        height: imageSize.height,
+        byteLength: bytes.byteLength,
+        base64Length: base64.length,
+        lineLength,
+        sha256,
+        base64
+      });
+
+      return { text, bytes, sha256, extension, imageSize };
+    }
+
     function parseBase64TextContent(content) {
       const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
       const lines = normalized.split("\n");
@@ -1043,6 +1195,29 @@ ${error.message}`, "error");
       parsed.base64Text = foundBase64Block ? base64Parts.join("") : stripPlainBase64Text(content);
       if (parsed.format === "UNKNOWN") parsed.format = detectFormatFromBytesSafe(parsed.base64Text);
       return parsed;
+    }
+
+    async function decodeTextContentToBinary(content, inputDescription) {
+      if (!content || !content.trim()) throw new Error("Input text is empty.");
+
+      const parsed = parseBase64TextContent(content);
+      if (!parsed.base64Text) throw new Error("No Base64 content found. Provide full exported text or plain Base64.");
+
+      const bytes = base64ToUint8Array(parsed.base64Text);
+      const actualSha256 = await calculateSHA256(bytes);
+      const strictValidation = strictValidationInput.value === "true";
+
+      if (strictValidation && parsed.sha256 && parsed.sha256.toLowerCase() !== actualSha256.toLowerCase()) {
+        throw new Error(`SHA256 mismatch for ${inputDescription}.\nExpected: ${parsed.sha256}\nActual:   ${actualSha256}`);
+      }
+
+      if (strictValidation && parsed.byteLength > 0 && parsed.byteLength !== bytes.byteLength) {
+        throw new Error(`BYTE_LENGTH mismatch for ${inputDescription}.\nExpected: ${parsed.byteLength}\nActual:   ${bytes.byteLength}`);
+      }
+
+      const normalizedExtension = normalizeOutputExtension(parsed.format, bytes);
+      const mimeType = getMimeTypeFromFormat(parsed.format, bytes);
+      return { parsed, bytes, sha256: actualSha256, mimeType, outputExtension: normalizedExtension };
     }
 
     function stripPlainBase64Text(content) { return content.replace(/\s+/g, ""); }
@@ -1106,6 +1281,13 @@ ${error.message}`, "error");
       container.appendChild(img);
     }
 
+    function collectBatchFiles(fileList, allowedExtensions) {
+      return Array.from(fileList || []).filter(file => {
+        const ext = "." + getExtension(file.name).toLowerCase();
+        return allowedExtensions.includes(ext);
+      }).sort((a, b) => getRelativePath(a).localeCompare(getRelativePath(b)));
+    }
+
     function getImageSizeFromFile(file) {
       return new Promise(resolve => {
         if (!file.type.startsWith("image/")) { resolve({ width: 0, height: 0 }); return; }
@@ -1129,6 +1311,74 @@ ${error.message}`, "error");
 
     function buildBasicFileMeta(file) {
       return [`File: ${file.name}`, `MIME: ${file.type || "unknown"}`, `Bytes: ${file.size}`, `Last Modified: ${file.lastModified ? new Date(file.lastModified).toISOString() : "unknown"}`].join("\n");
+    }
+
+    async function pickOutputDirectory(purposeLabel) {
+      if (typeof window.showDirectoryPicker !== "function") {
+        appendBatchLog(`Directory picker unavailable. Using download fallback for ${purposeLabel}.`);
+        return null;
+      }
+
+      try {
+        return await window.showDirectoryPicker({ mode: "readwrite" });
+      } catch (error) {
+        if (error && error.name === "AbortError") throw new Error("Output folder selection was cancelled.");
+        throw error;
+      }
+    }
+
+    async function writeFileToDirectory(rootDirectory, relativePath, content, mimeType) {
+      const segments = relativePath.split("/").filter(Boolean);
+      const fileName = segments.pop();
+      let currentDirectory = rootDirectory;
+
+      for (const segment of segments) {
+        currentDirectory = await currentDirectory.getDirectoryHandle(segment, { create: true });
+      }
+
+      const fileHandle = await currentDirectory.getFileHandle(fileName, { create: true });
+      const writable = await fileHandle.createWritable();
+      const blob = content instanceof Uint8Array
+        ? new Blob([content], { type: mimeType || "application/octet-stream" })
+        : new Blob([content], { type: mimeType || "text/plain;charset=utf-8" });
+      await writable.write(blob);
+      await writable.close();
+    }
+
+    function downloadTextFile(text, fileName) {
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      downloadBlob(blob, fileName);
+    }
+
+    function downloadBinaryFile(bytes, mimeType, fileName) {
+      const blob = new Blob([bytes], { type: mimeType || "application/octet-stream" });
+      downloadBlob(blob, fileName);
+    }
+
+    function downloadBlob(blob, fileName) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function appendBatchLog(message) {
+      batchLog.textContent = batchLog.textContent === "No batch work yet."
+        ? message
+        : `${batchLog.textContent}\n${message}`;
+    }
+
+    function clearBatchLog() {
+      batchLog.textContent = "No batch work yet.";
+      setStatus(batchStatus, "Idle.", "");
+    }
+
+    function getRelativePath(file) {
+      return (file.webkitRelativePath || file.name).replace(/^\/+/, "");
     }
 
     function initializeTheme() {
@@ -1214,6 +1464,10 @@ ${error.message}`, "error");
       return index < 0 ? "" : fileName.slice(index + 1);
     }
 
+    function replaceExtension(filePath, nextExtension) {
+      return filePath.replace(/\.[^/.]+$/, "") + nextExtension;
+    }
+
     function sanitizeFileName(name, fallback) {
       const cleaned = name.trim().replace(/[\\/:*?"<>|]/g, "_");
       return cleaned || fallback;
@@ -1236,6 +1490,32 @@ ${error.message}`, "error");
         case "BMP": return "image/bmp";
         case "SVG": return "image/svg+xml";
         default: return getMimeTypeFromBytes(bytes) || "application/octet-stream";
+      }
+    }
+
+    function normalizeOutputExtension(format, bytes) {
+      const upper = (format || "").toUpperCase();
+      switch (upper) {
+        case "PNG": return "png";
+        case "JPG":
+        case "JPEG": return "jpg";
+        case "WEBP": return "webp";
+        case "GIF": return "gif";
+        case "BMP": return "bmp";
+        case "SVG": return "svg";
+        case "TGA": return "tga";
+        default: {
+          const mimeType = getMimeTypeFromFormat(format, bytes);
+          switch (mimeType) {
+            case "image/png": return "png";
+            case "image/jpeg": return "jpg";
+            case "image/webp": return "webp";
+            case "image/gif": return "gif";
+            case "image/bmp": return "bmp";
+            case "image/svg+xml": return "svg";
+            default: return "bin";
+          }
+        }
       }
     }
 
