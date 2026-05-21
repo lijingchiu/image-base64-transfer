@@ -1049,8 +1049,14 @@ BASE64_END</div>
           const targetName = replaceExtension(relativePath.split("/").pop() || "restored.txt", "." + decoded.outputExtension);
 
           if (outputDirectory) {
-            await writeFileToDirectory(outputDirectory, targetRelativePath, decoded.bytes, decoded.mimeType);
-            appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> ${targetRelativePath} (${decoded.sha256})`);
+            try {
+              await writeFileToDirectory(outputDirectory, targetRelativePath, decoded.bytes, decoded.mimeType);
+              appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> ${targetRelativePath} (${decoded.sha256})`);
+            } catch (writeError) {
+              downloadBinaryFile(decoded.bytes, decoded.mimeType, targetName);
+              appendBatchLog(`WARN GITHUB IMPORT  ${txtPath} -> write failed for ${targetRelativePath}; downloaded ${targetName} instead (${decoded.sha256})`);
+              appendBatchLog(`WARN DETAILS ${formatNativeFileError(writeError)}`);
+            }
           } else {
             downloadBinaryFile(decoded.bytes, decoded.mimeType, targetName);
             appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> download ${targetName} (${decoded.sha256})`);
@@ -1533,6 +1539,12 @@ ${error.message}`, "error");
         : new Blob([content], { type: mimeType || "text/plain;charset=utf-8" });
       await writable.write(blob);
       await writable.close();
+    }
+
+    function formatNativeFileError(error) {
+      if (!error) return "Unknown file system error.";
+      if (error.message) return error.message;
+      return String(error);
     }
 
     function downloadTextFile(text, fileName) {
