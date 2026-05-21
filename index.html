@@ -412,20 +412,28 @@
           <input id="githubPath" type="text" value="ImageBase64_Export.txt" autocomplete="off" />
         </div>
         <div>
-          <label for="githubToken">Fine-grained Token / PAT<span class="hint">需要 Contents: Read and write 權限。私有 Repo 也需要對該 Repo 有權限。</span></label>
-          <input id="githubToken" type="password" placeholder="github_pat_..." autocomplete="off" />
+          <label for="githubBatchPath">Batch Base Path<span class="hint">批量模式用的 repo 資料夾路徑，例如 transfers/batch。上傳時會在此路徑下保留子資料夾結構。</span></label>
+          <input id="githubBatchPath" type="text" value="batch-transfers" autocomplete="off" />
         </div>
       </div>
 
       <div class="row">
         <div>
+          <label for="githubToken">Fine-grained Token / PAT<span class="hint">需要 Contents: Read and write 權限。私有 Repo 也需要對該 Repo 有權限。</span></label>
+          <input id="githubToken" type="password" placeholder="github_pat_..." autocomplete="off" />
+        </div>
+        <div>
           <label for="githubCommitMessage">Commit Message<span class="hint">Export to GitHub 時使用的 commit message。</span></label>
           <input id="githubCommitMessage" type="text" value="Update image base64 transfer text" />
         </div>
+      </div>
+
+      <div class="row">
         <div>
           <label for="githubAuthorName">Commit Author Optional<span class="hint">可留空。若填 name/email，會傳給 GitHub API 作為 commit author。</span></label>
           <input id="githubAuthorName" type="text" placeholder="Author name optional" autocomplete="off" />
         </div>
+        <div></div>
       </div>
 
       <div class="row">
@@ -572,6 +580,8 @@
       <div class="button-row">
         <button id="batchExportButton">Batch Export Folder</button>
         <button id="batchImportButton">Batch Import Folder</button>
+        <button id="batchExportToGithubButton">Batch Export to GitHub</button>
+        <button id="batchImportFromGithubButton">Batch Import from GitHub</button>
         <button id="clearBatchButton" class="secondary">Clear Batch Log</button>
       </div>
 
@@ -611,6 +621,7 @@ BASE64_END</div>
     const githubRepo = document.getElementById("githubRepo");
     const githubBranch = document.getElementById("githubBranch");
     const githubPath = document.getElementById("githubPath");
+    const githubBatchPath = document.getElementById("githubBatchPath");
     const githubToken = document.getElementById("githubToken");
     const githubCommitMessage = document.getElementById("githubCommitMessage");
     const githubAuthorName = document.getElementById("githubAuthorName");
@@ -656,6 +667,8 @@ BASE64_END</div>
     const batchImportFolder = document.getElementById("batchImportFolder");
     const batchExportButton = document.getElementById("batchExportButton");
     const batchImportButton = document.getElementById("batchImportButton");
+    const batchExportToGithubButton = document.getElementById("batchExportToGithubButton");
+    const batchImportFromGithubButton = document.getElementById("batchImportFromGithubButton");
     const clearBatchButton = document.getElementById("clearBatchButton");
     const batchStatus = document.getElementById("batchStatus");
     const batchLog = document.getElementById("batchLog");
@@ -695,6 +708,8 @@ BASE64_END</div>
     importFromGithubButton.addEventListener("click", importFromGithubAndDecode);
     batchExportButton.addEventListener("click", batchExportFolderToTexts);
     batchImportButton.addEventListener("click", batchImportTextsToImages);
+    batchExportToGithubButton.addEventListener("click", batchExportFolderToGithub);
+    batchImportFromGithubButton.addEventListener("click", batchImportFromGithubToImages);
     clearExportButton.addEventListener("click", clearExport);
     clearImportButton.addEventListener("click", clearImport);
     clearBatchButton.addEventListener("click", clearBatchLog);
@@ -982,6 +997,77 @@ BASE64_END</div>
       }
     }
 
+    async function batchExportFolderToGithub() {
+      const sourceFiles = collectBatchFiles(batchExportFolder.files, [".png", ".tga"]);
+      if (!sourceFiles.length) {
+        setStatus(batchStatus, "Batch GitHub export failed:\nNo .png or .tga files found in selected folder.", "error");
+        return;
+      }
+
+      clearBatchLog();
+      appendBatchLog(`Batch GitHub export start. Files: ${sourceFiles.length}`);
+
+      try {
+        const settings = getGithubSettings();
+        const basePath = getGithubBatchBasePath(settings);
+        const branch = await resolveGithubBranch(settings);
+        let successCount = 0;
+
+        for (const file of sourceFiles) {
+          const exportData = await buildExportDataFromFile(file);
+          const relativePath = getRelativePath(file);
+          const targetPath = joinGithubPath(basePath, replaceExtension(relativePath, ".txt"));
+          await githubUpsertTextFile(settings, branch, targetPath, exportData.text, `${settings.commitMessage} [batch export] ${relativePath}`);
+          appendBatchLog(`OK  GITHUB EXPORT  ${relativePath} -> ${targetPath}`);
+          successCount += 1;
+        }
+
+        setStatus(batchStatus, `Batch GitHub export succeeded.\nProcessed: ${successCount}\nBase Path: ${basePath}\nBranch: ${branch}`, "success");
+      } catch (error) {
+        setStatus(batchStatus, `Batch GitHub export failed:\n${error.message}`, "error");
+      }
+    }
+
+    async function batchImportFromGithubToImages() {
+      clearBatchLog();
+      appendBatchLog("Batch GitHub import start.");
+
+      try {
+        const settings = getGithubSettings();
+        const basePath = getGithubBatchBasePath(settings);
+        const branch = await resolveGithubBranch(settings);
+        const txtPaths = await githubListBatchTextPaths(settings, branch, basePath);
+
+        if (!txtPaths.length) throw new Error(`No .txt files found under GitHub batch path: ${basePath}`);
+
+        const outputDirectory = await pickOutputDirectory("GitHub batch restored image files");
+        let successCount = 0;
+
+        for (const txtPath of txtPaths) {
+          const text = await githubFetchTextFile(settings, branch, txtPath);
+          const decoded = await decodeTextContentToBinary(text, "GitHub Batch Txt: " + txtPath);
+          const relativePath = stripGithubBasePath(txtPath, basePath);
+          const targetRelativePath = replaceExtension(relativePath, "." + decoded.outputExtension);
+          const targetName = replaceExtension(relativePath.split("/").pop() || "restored.txt", "." + decoded.outputExtension);
+
+          if (outputDirectory) {
+            await writeFileToDirectory(outputDirectory, targetRelativePath, decoded.bytes, decoded.mimeType);
+            appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> ${targetRelativePath} (${decoded.sha256})`);
+          } else {
+            downloadBinaryFile(decoded.bytes, decoded.mimeType, targetName);
+            appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> download ${targetName} (${decoded.sha256})`);
+          }
+
+          successCount += 1;
+        }
+
+        const modeLabel = outputDirectory ? "files written to selected folder" : "download fallback used";
+        setStatus(batchStatus, `Batch GitHub import succeeded.\nProcessed: ${successCount}\nBase Path: ${basePath}\nBranch: ${branch}\nMode: ${modeLabel}`, "success");
+      } catch (error) {
+        setStatus(batchStatus, `Batch GitHub import failed:\n${error.message}`, "error");
+      }
+    }
+
     function saveGithubSettingsToStorage(showStatus) {
       try {
         const settings = {
@@ -989,6 +1075,7 @@ BASE64_END</div>
           repo: githubRepo.value.trim(),
           branch: githubBranch.value.trim(),
           path: githubPath.value.trim(),
+          batchPath: githubBatchPath.value.trim(),
           commitMessage: githubCommitMessage.value.trim(),
           authorName: githubAuthorName.value.trim(),
           authorEmail: githubAuthorEmail.value.trim(),
@@ -1025,6 +1112,7 @@ ${error.message}`, "error");
         githubRepo.value = settings.repo || "";
         githubBranch.value = settings.branch || "main";
         githubPath.value = settings.path || "ImageBase64_Export.txt";
+        githubBatchPath.value = settings.batchPath || "batch-transfers";
         githubCommitMessage.value = settings.commitMessage || "Update image base64 transfer text";
         githubAuthorName.value = settings.authorName || "";
         githubAuthorEmail.value = settings.authorEmail || "";
@@ -1051,6 +1139,7 @@ ${error.message}`, "error");
       githubRepo.value = "";
       githubBranch.value = "main";
       githubPath.value = "ImageBase64_Export.txt";
+      githubBatchPath.value = "batch-transfers";
       githubToken.value = "";
       githubCommitMessage.value = "Update image base64 transfer text";
       githubAuthorName.value = "";
@@ -1066,6 +1155,7 @@ ${error.message}`, "error");
         repo: githubRepo.value.trim(),
         branch: githubBranch.value.trim(),
         path: githubPath.value.trim().replace(/^\/+/, ""),
+        batchPath: githubBatchPath.value.trim().replace(/^\/+|\/+$/g, ""),
         token: githubToken.value.trim(),
         commitMessage: githubCommitMessage.value.trim() || "Update image base64 transfer text",
         authorName: githubAuthorName.value.trim(),
@@ -1080,10 +1170,12 @@ ${error.message}`, "error");
       return settings;
     }
 
-    function githubContentUrl(settings) {
-      const encodedPath = settings.path.split("/").map(encodeURIComponent).join("/");
+    function githubContentUrl(settings, targetPath, refOverride) {
+      const resolvedPath = (targetPath || settings.path).replace(/^\/+/, "");
+      const encodedPath = resolvedPath.split("/").map(encodeURIComponent).join("/");
       const base = `https://api.github.com/repos/${encodeURIComponent(settings.owner)}/${encodeURIComponent(settings.repo)}/contents/${encodedPath}`;
-      return settings.branch ? `${base}?ref=${encodeURIComponent(settings.branch)}` : base;
+      const ref = typeof refOverride === "string" ? refOverride : settings.branch;
+      return ref ? `${base}?ref=${encodeURIComponent(ref)}` : base;
     }
 
     function githubHeaders(settings) {
@@ -1105,6 +1197,93 @@ ${error.message}`, "error");
       if (response.status === 404 && allowMissing) return null;
       if (!response.ok) throw new Error(formatGithubError("GitHub get content failed", data));
       return data;
+    }
+
+    async function githubFetchContentByPath(settings, branch, targetPath, allowMissing) {
+      const response = await fetch(githubContentUrl(settings, targetPath, branch), {
+        method: "GET",
+        headers: githubHeaders(settings)
+      });
+
+      const data = await readGithubResponse(response);
+      if (response.status === 404 && allowMissing) return null;
+      if (!response.ok) throw new Error(formatGithubError(`GitHub get content failed for ${targetPath}`, data));
+      return data;
+    }
+
+    async function githubUpsertTextFile(settings, branch, targetPath, text, commitMessage) {
+      const existing = await githubFetchContentByPath(settings, branch, targetPath, true);
+      const body = {
+        message: commitMessage,
+        content: utf8ToBase64(text),
+        branch
+      };
+
+      if (existing && existing.sha) body.sha = existing.sha;
+      if (settings.authorName || settings.authorEmail) {
+        if (!settings.authorName || !settings.authorEmail) {
+          throw new Error("Author name and author email must be filled together, or both left empty.");
+        }
+        body.author = { name: settings.authorName, email: settings.authorEmail };
+        body.committer = { name: settings.authorName, email: settings.authorEmail };
+      }
+
+      const response = await fetch(githubContentUrl(settings, targetPath, null), {
+        method: "PUT",
+        headers: githubHeaders(settings),
+        body: JSON.stringify(body)
+      });
+
+      const data = await readGithubResponse(response);
+      if (!response.ok) throw new Error(formatGithubError(`GitHub update failed for ${targetPath}`, data));
+      return data;
+    }
+
+    async function githubFetchTextFile(settings, branch, targetPath) {
+      const data = await githubFetchContentByPath(settings, branch, targetPath, false);
+      if (!data || data.type !== "file") throw new Error(`GitHub path is not a file: ${targetPath}`);
+      if (!data.content) throw new Error(`GitHub response has no content field for ${targetPath}. File may be too large for the Contents API response.`);
+      return base64ToUtf8(data.content.replace(/\s+/g, ""));
+    }
+
+    async function resolveGithubBranch(settings) {
+      if (settings.branch) return settings.branch;
+
+      const response = await fetch(`https://api.github.com/repos/${encodeURIComponent(settings.owner)}/${encodeURIComponent(settings.repo)}`, {
+        method: "GET",
+        headers: githubHeaders(settings)
+      });
+      const data = await readGithubResponse(response);
+      if (!response.ok) throw new Error(formatGithubError("GitHub repo lookup failed", data));
+      if (!data.default_branch) throw new Error("Unable to determine GitHub default branch.");
+      return data.default_branch;
+    }
+
+    async function githubListBatchTextPaths(settings, branch, basePath) {
+      const commitResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(settings.owner)}/${encodeURIComponent(settings.repo)}/commits/${encodeURIComponent(branch)}`, {
+        method: "GET",
+        headers: githubHeaders(settings)
+      });
+      const commitData = await readGithubResponse(commitResponse);
+      if (!commitResponse.ok) throw new Error(formatGithubError("GitHub commit lookup failed", commitData));
+
+      const treeSha = commitData && commitData.commit && commitData.commit.tree && commitData.commit.tree.sha;
+      if (!treeSha) throw new Error("Unable to determine GitHub tree SHA.");
+
+      const treeResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(settings.owner)}/${encodeURIComponent(settings.repo)}/git/trees/${encodeURIComponent(treeSha)}?recursive=1`, {
+        method: "GET",
+        headers: githubHeaders(settings)
+      });
+      const treeData = await readGithubResponse(treeResponse);
+      if (!treeResponse.ok) throw new Error(formatGithubError("GitHub tree lookup failed", treeData));
+      if (!Array.isArray(treeData.tree)) throw new Error("GitHub tree lookup returned no tree entries.");
+
+      return treeData.tree
+        .filter(entry => entry && entry.type === "blob" && typeof entry.path === "string")
+        .map(entry => entry.path)
+        .filter(path => path.toLowerCase().endsWith(".txt"))
+        .filter(path => path === basePath || path.startsWith(basePath + "/"))
+        .sort((a, b) => a.localeCompare(b));
     }
 
     async function readGithubResponse(response) {
@@ -1381,6 +1560,11 @@ ${error.message}`, "error");
       return (file.webkitRelativePath || file.name).replace(/^\/+/, "");
     }
 
+    function getGithubBatchBasePath(settings) {
+      if (!settings.batchPath) throw new Error("GitHub Batch Base Path is required.");
+      return settings.batchPath.replace(/^\/+|\/+$/g, "");
+    }
+
     function initializeTheme() {
       applyTheme(getStoredThemePreference());
     }
@@ -1466,6 +1650,20 @@ ${error.message}`, "error");
 
     function replaceExtension(filePath, nextExtension) {
       return filePath.replace(/\.[^/.]+$/, "") + nextExtension;
+    }
+
+    function joinGithubPath(basePath, relativePath) {
+      const cleanBase = (basePath || "").replace(/^\/+|\/+$/g, "");
+      const cleanRelative = (relativePath || "").replace(/^\/+/, "");
+      return cleanBase ? `${cleanBase}/${cleanRelative}` : cleanRelative;
+    }
+
+    function stripGithubBasePath(fullPath, basePath) {
+      if (!basePath) return fullPath.replace(/^\/+/, "");
+      const normalizedBase = basePath.replace(/^\/+|\/+$/g, "");
+      return fullPath.startsWith(normalizedBase + "/")
+        ? fullPath.slice(normalizedBase.length + 1)
+        : fullPath;
     }
 
     function sanitizeFileName(name, fallback) {
