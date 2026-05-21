@@ -837,9 +837,7 @@ BASE64_END</div>
 
         const data = await githubGetContent(settings, false);
         if (!data || data.type !== "file") throw new Error("GitHub path is not a file.");
-        if (!data.content) throw new Error("GitHub response has no content field. File may be too large for the Contents API response.");
-
-        const text = base64ToUtf8(data.content.replace(/\s+/g, ""));
+        const text = await githubDecodeFileResponse(settings, data, settings.path);
         importMode.value = "text";
         importFilePanel.classList.add("hidden");
         importTextPanel.classList.remove("hidden");
@@ -1242,8 +1240,21 @@ ${error.message}`, "error");
     async function githubFetchTextFile(settings, branch, targetPath) {
       const data = await githubFetchContentByPath(settings, branch, targetPath, false);
       if (!data || data.type !== "file") throw new Error(`GitHub path is not a file: ${targetPath}`);
-      if (!data.content) throw new Error(`GitHub response has no content field for ${targetPath}. File may be too large for the Contents API response.`);
-      return base64ToUtf8(data.content.replace(/\s+/g, ""));
+      return await githubDecodeFileResponse(settings, data, targetPath);
+    }
+
+    async function githubDecodeFileResponse(settings, data, targetPath) {
+      if (data.content) return base64ToUtf8(data.content.replace(/\s+/g, ""));
+      if (!data.sha) throw new Error(`GitHub response has no content field or blob SHA for ${targetPath}.`);
+
+      const blobResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(settings.owner)}/${encodeURIComponent(settings.repo)}/git/blobs/${encodeURIComponent(data.sha)}`, {
+        method: "GET",
+        headers: githubHeaders(settings)
+      });
+      const blobData = await readGithubResponse(blobResponse);
+      if (!blobResponse.ok) throw new Error(formatGithubError(`GitHub blob fetch failed for ${targetPath}`, blobData));
+      if (!blobData.content) throw new Error(`GitHub blob response has no content field for ${targetPath}.`);
+      return base64ToUtf8(blobData.content.replace(/\s+/g, ""));
     }
 
     async function resolveGithubBranch(settings) {
