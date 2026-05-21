@@ -582,6 +582,7 @@
         <button id="batchImportButton">Batch Import Folder</button>
         <button id="batchExportToGithubButton">Batch Export to GitHub</button>
         <button id="batchImportFromGithubButton">Batch Import from GitHub</button>
+        <button id="clearBatchGithubButton" class="danger">Clear Batch GitHub Folder</button>
         <button id="clearBatchButton" class="secondary">Clear Batch Log</button>
       </div>
 
@@ -669,6 +670,7 @@ BASE64_END</div>
     const batchImportButton = document.getElementById("batchImportButton");
     const batchExportToGithubButton = document.getElementById("batchExportToGithubButton");
     const batchImportFromGithubButton = document.getElementById("batchImportFromGithubButton");
+    const clearBatchGithubButton = document.getElementById("clearBatchGithubButton");
     const clearBatchButton = document.getElementById("clearBatchButton");
     const batchStatus = document.getElementById("batchStatus");
     const batchLog = document.getElementById("batchLog");
@@ -710,6 +712,7 @@ BASE64_END</div>
     batchImportButton.addEventListener("click", batchImportTextsToImages);
     batchExportToGithubButton.addEventListener("click", batchExportFolderToGithub);
     batchImportFromGithubButton.addEventListener("click", batchImportFromGithubToImages);
+    clearBatchGithubButton.addEventListener("click", clearBatchGithubFolder);
     clearExportButton.addEventListener("click", clearExport);
     clearImportButton.addEventListener("click", clearImport);
     clearBatchButton.addEventListener("click", clearBatchLog);
@@ -1072,6 +1075,40 @@ BASE64_END</div>
       }
     }
 
+    async function clearBatchGithubFolder() {
+      clearBatchLog();
+      appendBatchLog("Batch GitHub clear start.");
+
+      try {
+        const settings = getGithubSettings();
+        const basePath = getGithubBatchBasePath(settings);
+        const branch = await resolveGithubBranch(settings);
+        const txtPaths = await githubListBatchTextPaths(settings, branch, basePath);
+
+        if (!txtPaths.length) {
+          setStatus(batchStatus, `Batch GitHub clear finished.\nNo .txt files found under ${basePath}.`, "success");
+          appendBatchLog(`No .txt files found under ${basePath}.`);
+          return;
+        }
+
+        let deletedCount = 0;
+        for (const txtPath of txtPaths) {
+          const fileData = await githubFetchContentByPath(settings, branch, txtPath, false);
+          if (!fileData || fileData.type !== "file" || !fileData.sha) {
+            throw new Error(`Unable to resolve SHA for GitHub file: ${txtPath}`);
+          }
+
+          await githubDeleteFile(settings, branch, txtPath, fileData.sha, `${settings.commitMessage} [batch clear] ${txtPath}`);
+          appendBatchLog(`OK  GITHUB DELETE  ${txtPath}`);
+          deletedCount += 1;
+        }
+
+        setStatus(batchStatus, `Batch GitHub clear succeeded.\nDeleted: ${deletedCount}\nBase Path: ${basePath}\nBranch: ${branch}`, "success");
+      } catch (error) {
+        setStatus(batchStatus, `Batch GitHub clear failed:\n${error.message}`, "error");
+      }
+    }
+
     function saveGithubSettingsToStorage(showStatus) {
       try {
         const settings = {
@@ -1240,6 +1277,28 @@ ${error.message}`, "error");
 
       const data = await readGithubResponse(response);
       if (!response.ok) throw new Error(formatGithubError(`GitHub update failed for ${targetPath}`, data));
+      return data;
+    }
+
+    async function githubDeleteFile(settings, branch, targetPath, sha, commitMessage) {
+      const body = { message: commitMessage, sha, branch };
+
+      if (settings.authorName || settings.authorEmail) {
+        if (!settings.authorName || !settings.authorEmail) {
+          throw new Error("Author name and author email must be filled together, or both left empty.");
+        }
+        body.author = { name: settings.authorName, email: settings.authorEmail };
+        body.committer = { name: settings.authorName, email: settings.authorEmail };
+      }
+
+      const response = await fetch(githubContentUrl(settings, targetPath, null), {
+        method: "DELETE",
+        headers: githubHeaders(settings),
+        body: JSON.stringify(body)
+      });
+
+      const data = await readGithubResponse(response);
+      if (!response.ok) throw new Error(formatGithubError(`GitHub delete failed for ${targetPath}`, data));
       return data;
     }
 
