@@ -1585,7 +1585,7 @@ ${error.message}`, "error");
       const parts = [];
       for (const partPath of manifest.parts) {
         const normalizedPartPath = normalizeLocalMultipartPartPath(entry.relativePath, partPath);
-        const partFile = entry.fileMap.get(normalizedPartPath);
+        const partFile = findLocalMultipartFile(entry.fileMap, normalizedPartPath);
         if (!partFile) throw new Error(`Missing local multipart file: ${normalizedPartPath}`);
         parts.push(await partFile.text());
       }
@@ -1871,6 +1871,17 @@ ${error.message}`, "error");
       const segments = manifestRelativePath.split("/");
       segments.pop();
       return segments.length ? `${segments.join("/")}/${cleanPartPath}` : cleanPartPath;
+    }
+
+    function findLocalMultipartFile(fileMap, normalizedPartPath) {
+      if (fileMap.has(normalizedPartPath)) return fileMap.get(normalizedPartPath);
+
+      const suffix = `/${normalizedPartPath}`;
+      const matches = Array.from(fileMap.entries())
+        .filter(([path]) => path === normalizedPartPath || path.endsWith(suffix))
+        .sort((a, b) => a[0].length - b[0].length);
+
+      return matches.length ? matches[0][1] : null;
     }
 
     function joinGithubPath(basePath, relativePath) {
