@@ -346,6 +346,43 @@
       line-height: 1;
     }
 
+    .mode-switcher {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      flex-wrap: wrap;
+    }
+
+    .mode-switcher-label {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 0 4px 0 6px;
+    }
+
+    .mode-button {
+      min-height: 38px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text);
+      border: 1px solid transparent;
+    }
+
+    .mode-button:hover {
+      background: var(--soft-bg);
+      color: var(--text);
+    }
+
+    .mode-button.active {
+      background: var(--accent);
+      color: #ffffff;
+    }
+
     .batch-list {
       margin-top: 14px;
       padding: 12px;
@@ -366,20 +403,28 @@
     <div class="topbar">
       <div>
         <h1>Image Base64 Transfer</h1>
-        <p>純前端工具。圖片與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。</p>
+        <p id="heroDescription">純前端工具。圖片與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。</p>
       </div>
 
-      <div class="theme-switcher" aria-label="Theme Switcher">
-        <span class="theme-switcher-label">Theme</span>
-        <button id="themeLightButton" class="theme-button secondary" type="button" data-theme-option="light" aria-pressed="false">
-          <span class="theme-icon" aria-hidden="true">☀️</span>白天
-        </button>
-        <button id="themeDarkButton" class="theme-button secondary" type="button" data-theme-option="dark" aria-pressed="false">
-          <span class="theme-icon" aria-hidden="true">🌙</span>黑暗
-        </button>
-        <button id="themeSystemButton" class="theme-button secondary" type="button" data-theme-option="system" aria-pressed="false">
-          <span class="theme-icon" aria-hidden="true">🖥️</span>跟隨系統
-        </button>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+        <div class="mode-switcher" aria-label="Mode Switcher">
+          <span class="mode-switcher-label">Mode</span>
+          <button id="modeImageButton" class="mode-button secondary" type="button" data-mode-option="image" aria-pressed="false">Image</button>
+          <button id="modeFbxButton" class="mode-button secondary" type="button" data-mode-option="fbx" aria-pressed="false">FBX</button>
+        </div>
+
+        <div class="theme-switcher" aria-label="Theme Switcher">
+          <span class="theme-switcher-label">Theme</span>
+          <button id="themeLightButton" class="theme-button secondary" type="button" data-theme-option="light" aria-pressed="false">
+            <span class="theme-icon" aria-hidden="true">☀️</span>白天
+          </button>
+          <button id="themeDarkButton" class="theme-button secondary" type="button" data-theme-option="dark" aria-pressed="false">
+            <span class="theme-icon" aria-hidden="true">🌙</span>黑暗
+          </button>
+          <button id="themeSystemButton" class="theme-button secondary" type="button" data-theme-option="system" aria-pressed="false">
+            <span class="theme-icon" aria-hidden="true">🖥️</span>跟隨系統
+          </button>
+        </div>
       </div>
     </div>
 
@@ -389,7 +434,7 @@
 
     <section class="card">
       <h2>GitHub Settings</h2>
-      <p>指定要讀寫的 Repo 與檔案路徑。Export to GitHub 會更新這個檔案並建立 commit；Import from GitHub 會讀取同一個檔案。</p>
+      <p id="githubSettingsDescription">指定要讀寫的 Repo 與檔案路徑。Export to GitHub 會更新這個檔案並建立 commit；Import from GitHub 會讀取同一個檔案。</p>
 
       <div class="row-3">
         <div>
@@ -408,11 +453,11 @@
 
       <div class="row">
         <div>
-          <label for="githubPath">File Path<span class="hint">Repo 內的 txt 檔路徑，例如 transfers/ImageBase64_Export.txt。</span></label>
+          <label for="githubPath"><span id="githubPathLabel">File Path</span><span class="hint" id="githubPathHint">Repo 內的 txt 檔路徑，例如 transfers/ImageBase64_Export.txt。</span></label>
           <input id="githubPath" type="text" value="ImageBase64_Export.txt" autocomplete="off" />
         </div>
         <div>
-          <label for="githubBatchPath">Batch Base Path<span class="hint">批量模式用的 repo 資料夾路徑，例如 transfers/batch。上傳時會在此路徑下保留子資料夾結構。</span></label>
+          <label for="githubBatchPath"><span id="githubBatchPathLabel">Batch Base Path</span><span class="hint" id="githubBatchPathHint">批量模式用的 repo 資料夾路徑，例如 transfers/batch。上傳時會在此路徑下保留子資料夾結構。</span></label>
           <input id="githubBatchPath" type="text" value="batch-transfers" autocomplete="off" />
         </div>
       </div>
@@ -466,10 +511,10 @@
 
     <div class="grid">
       <section class="card">
-        <h2>Export：圖片 → Base64 文字</h2>
-        <p>選擇圖片檔後，工具會直接讀取原始檔案 bytes 並轉成 Base64。這是檔案級轉換，保真度最高。</p>
+        <h2 id="exportSectionTitle">Export：圖片 → Base64 文字</h2>
+        <p id="exportSectionDescription">選擇圖片檔後，工具會直接讀取原始檔案 bytes 並轉成 Base64。這是檔案級轉換，保真度最高。</p>
 
-        <label for="exportFile">Source Image File<span class="hint">選擇要轉成文字的圖片。預覽取決於瀏覽器支援，但 Base64 轉換會保留原始檔案 bytes。</span></label>
+        <label for="exportFile"><span id="exportFileLabel">Source Image File</span><span class="hint" id="exportFileHint">選擇要轉成文字的圖片。預覽取決於瀏覽器支援，但 Base64 轉換會保留原始檔案 bytes。</span></label>
         <input id="exportFile" type="file" accept="image/*,.tga,.exr" />
 
         <div class="row">
@@ -478,7 +523,7 @@
             <input id="lineLength" type="number" min="256" step="1" value="8000" />
           </div>
           <div>
-            <label for="exportFileName">Output Txt File Name<span class="hint">下載 txt 時使用的檔名。</span></label>
+            <label for="exportFileName"><span id="exportFileNameLabel">Output Txt File Name</span><span class="hint" id="exportFileNameHint">下載 txt 時使用的檔名。</span></label>
             <input id="exportFileName" type="text" value="ImageBase64_Export.txt" />
           </div>
         </div>
@@ -491,23 +536,23 @@
           <button id="clearExportButton" class="secondary">Clear</button>
         </div>
 
-        <div class="preview-wrap">
+        <div class="preview-wrap" id="exportPreviewWrap">
           <div class="preview" id="exportPreview">No preview</div>
           <div>
-            <h3>Export Metadata</h3>
+            <h3 id="exportMetadataTitle">Export Metadata</h3>
             <div class="meta" id="exportMeta">No image loaded.</div>
           </div>
         </div>
 
-        <label for="exportTextOutput">Generated Txt Content<span class="hint">這裡會產生完整 txt 內容，包含 metadata、SHA256、BASE64_BEGIN / BASE64_END。</span></label>
+        <label for="exportTextOutput"><span id="exportTextOutputLabel">Generated Txt Content</span><span class="hint" id="exportTextOutputHint">這裡會產生完整 txt 內容，包含 metadata、SHA256、BASE64_BEGIN / BASE64_END。</span></label>
         <textarea id="exportTextOutput" readonly></textarea>
 
         <div id="exportStatus" class="status">Idle.</div>
       </section>
 
       <section class="card">
-        <h2>Import：Base64 文字 → 圖片</h2>
-        <p>可匯入 txt 檔、直接貼上整份 txt 內容，或從 GitHub 指定檔案讀取。</p>
+        <h2 id="importSectionTitle">Import：Base64 文字 → 圖片</h2>
+        <p id="importSectionDescription">可匯入 txt 檔、直接貼上整份 txt 內容，或從 GitHub 指定檔案讀取。</p>
 
         <label for="importMode">Input Mode<span class="hint">Txt File：選擇文字檔。Text Field：直接貼上整份文字內容。</span></label>
         <select id="importMode">
@@ -516,12 +561,12 @@
         </select>
 
         <div id="importFilePanel">
-          <label for="importTxtFile">Base64 Txt File<span class="hint">選擇由本工具或 Unity 版本輸出的 txt，也可選擇只包含純 Base64 的 txt。</span></label>
+          <label for="importTxtFile"><span id="importTxtFileLabel">Base64 Txt File</span><span class="hint" id="importTxtFileHint">選擇由本工具或 Unity 版本輸出的 txt，也可選擇只包含純 Base64 的 txt。</span></label>
           <input id="importTxtFile" type="file" accept=".txt,text/plain" />
         </div>
 
         <div id="importTextPanel" class="hidden">
-          <label for="importTextInput">Full Txt Content<span class="hint">直接貼上完整 txt 內容。可以包含 metadata，也可以只貼純 Base64。</span></label>
+          <label for="importTextInput"><span id="importTextInputLabel">Full Txt Content</span><span class="hint" id="importTextInputHint">直接貼上完整 txt 內容。可以包含 metadata，也可以只貼純 Base64。</span></label>
           <textarea id="importTextInput" placeholder="Paste full exported txt content or plain Base64 here..."></textarea>
           <div class="button-row">
             <button id="clearImportTextButton" class="secondary">Clear Text Field</button>
@@ -530,7 +575,7 @@
 
         <div class="row">
           <div>
-            <label for="restoredFileName">Restored Image File Name<span class="hint">下載還原圖片時使用的檔名。副檔名要符合原始圖片格式，例如 .png / .jpg / .webp。</span></label>
+            <label for="restoredFileName"><span id="restoredFileNameLabel">Restored Image File Name</span><span class="hint" id="restoredFileNameHint">下載還原圖片時使用的檔名。副檔名要符合原始圖片格式，例如 .png / .jpg / .webp。</span></label>
             <input id="restoredFileName" type="text" value="ImageBase64_Restored.png" />
           </div>
           <div>
@@ -550,10 +595,10 @@
           <button id="clearImportButton" class="secondary">Clear</button>
         </div>
 
-        <div class="preview-wrap">
+        <div class="preview-wrap" id="importPreviewWrap">
           <div class="preview" id="importPreview">No preview</div>
           <div>
-            <h3>Import Metadata</h3>
+            <h3 id="importMetadataTitle">Import Metadata</h3>
             <div class="meta" id="importMeta">No image decoded.</div>
           </div>
         </div>
@@ -563,16 +608,16 @@
     </div>
 
     <section class="card" style="margin-top: 18px;">
-      <h2>Batch：資料夾批量匯出 / 匯入</h2>
-      <p>可一次選整個資料夾處理多張圖。`.png` 與 `.tga` 會以原始檔案 bytes 轉換，因此 `.tga` 的色版與通道資料不會因轉換而丟失。若瀏覽器支援，會先讓你選輸出資料夾；不支援時會改成逐檔下載。</p>
+      <h2 id="batchSectionTitle">Batch：資料夾批量匯出 / 匯入</h2>
+      <p id="batchSectionDescription">可一次選整個資料夾處理多張圖。`.png` 與 `.tga` 會以原始檔案 bytes 轉換，因此 `.tga` 的色版與通道資料不會因轉換而丟失。若瀏覽器支援，會先讓你選輸出資料夾；不支援時會改成逐檔下載。</p>
 
       <div class="row">
         <div>
-          <label for="batchExportFolder">Source Image Folder<span class="hint">選擇包含 `.png` / `.tga` 圖檔的資料夾。子資料夾也會一起掃描。</span></label>
+          <label for="batchExportFolder"><span id="batchExportFolderLabel">Source Image Folder</span><span class="hint" id="batchExportFolderHint">選擇包含 `.png` / `.tga` 圖檔的資料夾。子資料夾也會一起掃描。</span></label>
           <input id="batchExportFolder" type="file" webkitdirectory directory multiple accept=".png,.tga,image/png" />
         </div>
         <div>
-          <label for="batchImportFolder">Source Txt Folder<span class="hint">選擇包含本工具輸出 `.txt` 的資料夾。子資料夾也會一起掃描。</span></label>
+          <label for="batchImportFolder"><span id="batchImportFolderLabel">Source Txt Folder</span><span class="hint" id="batchImportFolderHint">選擇包含本工具輸出 `.txt` 的資料夾。子資料夾也會一起掃描。</span></label>
           <input id="batchImportFolder" type="file" webkitdirectory directory multiple accept=".txt,text/plain" />
         </div>
       </div>
@@ -628,7 +673,93 @@ BASE64_END</div>
     const GITHUB_TEXT_FILE_MAX_CHARS = 700000;
     const GITHUB_MULTIPART_PART_CHARS = 500000;
     const THEME_STORAGE_KEY = "imageBase64Transfer.theme.v1";
+    const MODE_STORAGE_KEY = "imageBase64Transfer.mode.v1";
+    const GITHUB_SETTINGS_STORAGE_KEY = "imageBase64Transfer.githubSettings.v2";
     const systemThemeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+    const MODE_CONFIG = {
+      image: {
+        title: "Image Base64 Transfer",
+        heroDescription: "純前端工具。圖片與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。",
+        githubSettingsDescription: "指定要讀寫的 Repo 與檔案路徑。Export to GitHub 會更新這個檔案並建立 commit；Import from GitHub 會讀取同一個檔案。",
+        githubPathHint: "Repo 內的 txt 檔路徑，例如 transfers/ImageBase64_Export.txt。",
+        githubBatchPathHint: "批量模式用的 repo 資料夾路徑，例如 transfers/batch。上傳時會在此路徑下保留子資料夾結構。",
+        defaultGithubPath: "ImageBase64_Export.txt",
+        defaultGithubBatchPath: "batch-transfers",
+        exportSectionTitle: "Export：圖片 → Base64 文字",
+        exportSectionDescription: "選擇圖片檔後，工具會直接讀取原始檔案 bytes 並轉成 Base64。這是檔案級轉換，保真度最高。",
+        exportFileLabel: "Source Image File",
+        exportFileHint: "選擇要轉成文字的圖片。預覽取決於瀏覽器支援，但 Base64 轉換會保留原始檔案 bytes。",
+        exportAccept: "image/*,.tga,.exr",
+        exportFileNameLabel: "Output Txt File Name",
+        exportFileNameHint: "下載 txt 時使用的檔名。",
+        defaultExportTxtName: "ImageBase64_Export.txt",
+        exportMetadataTitle: "Export Metadata",
+        exportTextOutputLabel: "Generated Txt Content",
+        exportTextOutputHint: "這裡會產生完整 txt 內容，包含 metadata、SHA256、BASE64_BEGIN / BASE64_END。",
+        importSectionTitle: "Import：Base64 文字 → 圖片",
+        importSectionDescription: "可匯入 txt 檔、直接貼上整份 txt 內容，或從 GitHub 指定檔案讀取。",
+        importTxtFileLabel: "Base64 Txt File",
+        importTxtFileHint: "選擇由本工具或 Unity 版本輸出的 txt，也可選擇只包含純 Base64 的 txt。",
+        importTextInputLabel: "Full Txt Content",
+        importTextInputHint: "直接貼上完整 txt 內容。可以包含 metadata，也可以只貼純 Base64。",
+        importTextPlaceholder: "Paste full exported txt content or plain Base64 here...",
+        restoredFileNameLabel: "Restored Image File Name",
+        restoredFileNameHint: "下載還原圖片時使用的檔名。副檔名要符合原始圖片格式，例如 .png / .jpg / .webp。",
+        defaultRestoredName: "ImageBase64_Restored.png",
+        importMetadataTitle: "Import Metadata",
+        batchSectionTitle: "Batch：資料夾批量匯出 / 匯入",
+        batchSectionDescription: "可一次選整個資料夾處理多張圖。`.png` 與 `.tga` 會以原始檔案 bytes 轉換，因此 `.tga` 的色版與通道資料不會因轉換而丟失。若瀏覽器支援，會先讓你選輸出資料夾；不支援時會改成逐檔下載。",
+        batchExportFolderLabel: "Source Image Folder",
+        batchExportFolderHint: "選擇包含 `.png` / `.tga` 圖檔的資料夾。子資料夾也會一起掃描。",
+        batchExportAccept: ".png,.tga,image/png",
+        batchImportFolderLabel: "Source Txt Folder",
+        batchImportFolderHint: "選擇包含本工具輸出 `.txt` 的資料夾。子資料夾也會一起掃描。",
+        batchExtensions: [".png", ".tga"],
+        supportsPreview: true,
+        sourceMode: "RawImageFileEncode"
+      },
+      fbx: {
+        title: "FBX Base64 Transfer",
+        heroDescription: "純前端工具。FBX 與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。FBX 模式只保證原始 bytes 一致，不處理貼圖與材質。",
+        githubSettingsDescription: "指定要讀寫的 Repo 與檔案路徑。FBX 模式與 Image 模式各自使用獨立的 File Path / Batch Base Path，避免混用。",
+        githubPathHint: "Repo 內的 FBX txt 檔路徑，例如 transfers/FbxBase64_Export.txt。",
+        githubBatchPathHint: "FBX 批量模式用的 repo 資料夾路徑，例如 fbx-batch-transfers。上傳時會在此路徑下保留子資料夾結構。",
+        defaultGithubPath: "FbxBase64_Export.txt",
+        defaultGithubBatchPath: "fbx-batch-transfers",
+        exportSectionTitle: "Export：FBX → Base64 文字",
+        exportSectionDescription: "選擇 `.fbx` 檔後，工具會直接讀取原始檔案 bytes 並轉成 Base64。這是檔案級轉換，目標是 round-trip 後 SHA256 與 BYTE_LENGTH 完全一致。",
+        exportFileLabel: "Source FBX File",
+        exportFileHint: "選擇要轉成文字的 `.fbx`。FBX 模式不做預覽，也不解析模型內容。",
+        exportAccept: ".fbx,model/fbx,application/octet-stream",
+        exportFileNameLabel: "Output Txt File Name",
+        exportFileNameHint: "下載 txt 時使用的檔名。",
+        defaultExportTxtName: "FbxBase64_Export.txt",
+        exportMetadataTitle: "Export Metadata",
+        exportTextOutputLabel: "Generated Txt Content",
+        exportTextOutputHint: "這裡會產生完整 txt 內容，包含 metadata、SHA256、BASE64_BEGIN / BASE64_END。",
+        importSectionTitle: "Import：Base64 文字 → FBX",
+        importSectionDescription: "可匯入 txt 檔、直接貼上整份 txt 內容，或從 GitHub 指定檔案讀取，再還原成 `.fbx`。",
+        importTxtFileLabel: "FBX Base64 Txt File",
+        importTxtFileHint: "選擇由本工具輸出的 FBX txt，也可選擇只包含純 Base64 的 txt。",
+        importTextInputLabel: "Full Txt Content",
+        importTextInputHint: "直接貼上完整 txt 內容。可以包含 metadata，也可以只貼純 Base64。",
+        importTextPlaceholder: "Paste full exported FBX txt content or plain Base64 here...",
+        restoredFileNameLabel: "Restored FBX File Name",
+        restoredFileNameHint: "下載還原 FBX 時使用的檔名。副檔名應為 `.fbx`。",
+        defaultRestoredName: "FbxBase64_Restored.fbx",
+        importMetadataTitle: "Import Metadata",
+        batchSectionTitle: "Batch：FBX 資料夾批量匯出 / 匯入",
+        batchSectionDescription: "可一次選整個資料夾處理多個 `.fbx`。FBX 模式不做預覽，只保證原始 bytes round-trip；適合回放到 Unity 專案目錄。",
+        batchExportFolderLabel: "Source FBX Folder",
+        batchExportFolderHint: "選擇包含 `.fbx` 檔案的資料夾。子資料夾也會一起掃描。",
+        batchExportAccept: ".fbx",
+        batchImportFolderLabel: "Source FBX Txt Folder",
+        batchImportFolderHint: "選擇包含 FBX `.txt` 的資料夾。子資料夾也會一起掃描。",
+        batchExtensions: [".fbx"],
+        supportsPreview: false,
+        sourceMode: "RawFbxFileEncode"
+      }
+    };
 
     const githubOwner = document.getElementById("githubOwner");
     const githubRepo = document.getElementById("githubRepo");
@@ -645,7 +776,6 @@ BASE64_END</div>
     const loadGithubSettingsButton = document.getElementById("loadGithubSettingsButton");
     const clearGithubSettingsButton = document.getElementById("clearGithubSettingsButton");
     const rememberGithubToken = document.getElementById("rememberGithubToken");
-    const GITHUB_SETTINGS_STORAGE_KEY = "imageBase64Transfer.githubSettings.v1";
 
     const exportFile = document.getElementById("exportFile");
     const lineLengthInput = document.getElementById("lineLength");
@@ -691,13 +821,50 @@ BASE64_END</div>
     const themeLightButton = document.getElementById("themeLightButton");
     const themeDarkButton = document.getElementById("themeDarkButton");
     const themeSystemButton = document.getElementById("themeSystemButton");
+    const modeImageButton = document.getElementById("modeImageButton");
+    const modeFbxButton = document.getElementById("modeFbxButton");
+    const heroDescription = document.getElementById("heroDescription");
+    const githubSettingsDescription = document.getElementById("githubSettingsDescription");
+    const githubPathLabel = document.getElementById("githubPathLabel");
+    const githubPathHint = document.getElementById("githubPathHint");
+    const githubBatchPathLabel = document.getElementById("githubBatchPathLabel");
+    const githubBatchPathHint = document.getElementById("githubBatchPathHint");
+    const exportSectionTitle = document.getElementById("exportSectionTitle");
+    const exportSectionDescription = document.getElementById("exportSectionDescription");
+    const exportFileLabel = document.getElementById("exportFileLabel");
+    const exportFileHint = document.getElementById("exportFileHint");
+    const exportFileNameLabel = document.getElementById("exportFileNameLabel");
+    const exportFileNameHint = document.getElementById("exportFileNameHint");
+    const exportPreviewWrap = document.getElementById("exportPreviewWrap");
+    const exportMetadataTitle = document.getElementById("exportMetadataTitle");
+    const exportTextOutputLabel = document.getElementById("exportTextOutputLabel");
+    const exportTextOutputHint = document.getElementById("exportTextOutputHint");
+    const importSectionTitle = document.getElementById("importSectionTitle");
+    const importSectionDescription = document.getElementById("importSectionDescription");
+    const importTxtFileLabel = document.getElementById("importTxtFileLabel");
+    const importTxtFileHint = document.getElementById("importTxtFileHint");
+    const importTextInputLabel = document.getElementById("importTextInputLabel");
+    const importTextInputHint = document.getElementById("importTextInputHint");
+    const restoredFileNameLabel = document.getElementById("restoredFileNameLabel");
+    const restoredFileNameHint = document.getElementById("restoredFileNameHint");
+    const importPreviewWrap = document.getElementById("importPreviewWrap");
+    const importMetadataTitle = document.getElementById("importMetadataTitle");
+    const batchSectionTitle = document.getElementById("batchSectionTitle");
+    const batchSectionDescription = document.getElementById("batchSectionDescription");
+    const batchExportFolderLabel = document.getElementById("batchExportFolderLabel");
+    const batchExportFolderHint = document.getElementById("batchExportFolderHint");
+    const batchImportFolderLabel = document.getElementById("batchImportFolderLabel");
+    const batchImportFolderHint = document.getElementById("batchImportFolderHint");
     const themeButtons = [themeLightButton, themeDarkButton, themeSystemButton];
+    const modeButtons = [modeImageButton, modeFbxButton];
 
     let exportTxtObjectUrl = null;
     let importImageObjectUrl = null;
     let lastImportMetadata = "";
+    let currentMode = "image";
 
     window.addEventListener("DOMContentLoaded", () => {
+      initializeMode();
       initializeTheme();
       loadGithubSettingsFromStorage(false);
     });
@@ -707,6 +874,9 @@ BASE64_END</div>
     clearGithubSettingsButton.addEventListener("click", clearGithubSettingsFromStorage);
     themeButtons.forEach(button => {
       button.addEventListener("click", () => setThemePreference(button.dataset.themeOption));
+    });
+    modeButtons.forEach(button => {
+      button.addEventListener("click", () => setCurrentMode(button.dataset.modeOption));
     });
     systemThemeMedia.addEventListener("change", () => {
       if (getStoredThemePreference() === "system") applyTheme("system");
@@ -747,15 +917,20 @@ BASE64_END</div>
     exportFile.addEventListener("change", () => {
       const file = exportFile.files && exportFile.files[0];
       if (!file) return;
-      renderFilePreview(file, exportPreview);
+      if (getCurrentModeConfig().supportsPreview) {
+        renderFilePreview(file, exportPreview);
+      } else {
+        exportPreview.textContent = "Preview disabled in FBX mode";
+      }
       exportMeta.textContent = buildBasicFileMeta(file);
-      if (!githubPath.value.trim()) githubPath.value = sanitizeFileName(file.name + ".txt", "ImageBase64_Export.txt");
+      if (!githubPath.value.trim()) githubPath.value = sanitizeFileName(file.name + ".txt", getCurrentModeConfig().defaultGithubPath);
     });
 
     async function encodeSelectedImageToText() {
       try {
         const file = exportFile.files && exportFile.files[0];
         if (!file) throw new Error("No source image file selected.");
+        const modeConfig = getCurrentModeConfig();
 
         const lineLength = Math.max(256, parseInt(lineLengthInput.value || "8000", 10));
         lineLengthInput.value = String(lineLength);
@@ -764,14 +939,15 @@ BASE64_END</div>
         const bytes = new Uint8Array(arrayBuffer);
         const base64 = uint8ArrayToBase64(bytes);
         const sha256 = await calculateSHA256(bytes);
-        const imageSize = await getImageSizeFromFile(file);
+        const imageSize = modeConfig.supportsPreview ? await getImageSizeFromFile(file) : { width: 0, height: 0 };
         const extension = getExtension(file.name).toUpperCase() || "UNKNOWN";
         const createdUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 
         const text = buildExportText({
           createdUtc,
           source: file.name,
-          format: extension,
+          sourceMode: modeConfig.sourceMode,
+          format: currentMode === "fbx" ? "FBX" : extension,
           width: imageSize.width,
           height: imageSize.height,
           byteLength: bytes.byteLength,
@@ -784,15 +960,15 @@ BASE64_END</div>
         exportTextOutput.value = text;
         exportMeta.textContent = [
           `File: ${file.name}`,
-          `Format: ${extension}`,
+          `Format: ${currentMode === "fbx" ? "FBX" : extension}`,
           `MIME: ${file.type || "unknown"}`,
-          `Size: ${imageSize.width || 0} x ${imageSize.height || 0}`,
-          `Image Bytes: ${bytes.byteLength}`,
+          currentMode === "fbx" ? "Preview: disabled in FBX mode" : `Size: ${imageSize.width || 0} x ${imageSize.height || 0}`,
+          `${currentMode === "fbx" ? "File" : "Image"} Bytes: ${bytes.byteLength}`,
           `Base64 Length: ${base64.length}`,
           `SHA256: ${sha256}`
-        ].join("\n");
+        ].filter(Boolean).join("\n");
 
-        const outputName = sanitizeFileName(exportFileNameInput.value || "ImageBase64_Export.txt", "ImageBase64_Export.txt");
+        const outputName = sanitizeFileName(exportFileNameInput.value || modeConfig.defaultExportTxtName, modeConfig.defaultExportTxtName);
         exportFileNameInput.value = outputName;
         setDownloadLink(downloadTxtLink, text, "text/plain;charset=utf-8", outputName, "Download Txt");
         copyExportTextButton.disabled = false;
@@ -879,19 +1055,25 @@ BASE64_END</div>
       downloadImageLink.textContent = "Download Image";
       downloadImageLink.classList.remove("disabled");
 
-      renderBlobPreview(blob, importPreview);
+      if (isFbxFormat(parsed.format)) {
+        importPreview.textContent = "Preview disabled in FBX mode";
+      } else {
+        renderBlobPreview(blob, importPreview);
+      }
 
-      const loadedSize = await getImageSizeFromBlob(blob).catch(() => ({ width: 0, height: 0 }));
+      const loadedSize = isFbxFormat(parsed.format)
+        ? { width: 0, height: 0 }
+        : await getImageSizeFromBlob(blob).catch(() => ({ width: 0, height: 0 }));
       lastImportMetadata = [
         `Input: ${inputDescription}`,
         `Format: ${parsed.format || "UNKNOWN"}`,
-        `Expected Size: ${(parsed.width || 0)} x ${(parsed.height || 0)}`,
-        `Loaded Size: ${(loadedSize.width || 0)} x ${(loadedSize.height || 0)}`,
-        `Image Bytes: ${bytes.byteLength}`,
+        isFbxFormat(parsed.format) ? null : `Expected Size: ${(parsed.width || 0)} x ${(parsed.height || 0)}`,
+        isFbxFormat(parsed.format) ? null : `Loaded Size: ${(loadedSize.width || 0)} x ${(loadedSize.height || 0)}`,
+        `${isFbxFormat(parsed.format) ? "File" : "Image"} Bytes: ${bytes.byteLength}`,
         `SHA256: ${actualSha256}`,
         parsed.sha256 ? `SHA256 Validation: ${parsed.sha256.toLowerCase() === actualSha256.toLowerCase() ? "PASS" : "FAIL"}` : "SHA256 Validation: no expected hash in text",
         parsed.byteLength > 0 ? `BYTE_LENGTH Validation: ${parsed.byteLength === bytes.byteLength ? "PASS" : "FAIL"}` : "BYTE_LENGTH Validation: no expected length in text"
-      ].join("\n");
+      ].filter(Boolean).join("\n");
 
       importMeta.textContent = lastImportMetadata;
       copyImportedMetaButton.disabled = false;
@@ -908,9 +1090,9 @@ BASE64_END</div>
     }
 
     async function batchExportFolderToTexts() {
-      const sourceFiles = collectBatchFiles(batchExportFolder.files, [".png", ".tga"]);
+      const sourceFiles = collectBatchFiles(batchExportFolder.files, getCurrentModeConfig().batchExtensions);
       if (!sourceFiles.length) {
-        setStatus(batchStatus, "Batch export failed:\nNo .png or .tga files found in selected folder.", "error");
+        setStatus(batchStatus, `Batch export failed:\nNo ${getCurrentModeConfig().batchExtensions.join(" / ")} files found in selected folder.`, "error");
         return;
       }
 
@@ -986,9 +1168,9 @@ BASE64_END</div>
     }
 
     async function batchExportFolderToGithub() {
-      const sourceFiles = collectBatchFiles(batchExportFolder.files, [".png", ".tga"]);
+      const sourceFiles = collectBatchFiles(batchExportFolder.files, getCurrentModeConfig().batchExtensions);
       if (!sourceFiles.length) {
-        setStatus(batchStatus, "Batch GitHub export failed:\nNo .png or .tga files found in selected folder.", "error");
+        setStatus(batchStatus, `Batch GitHub export failed:\nNo ${getCurrentModeConfig().batchExtensions.join(" / ")} files found in selected folder.`, "error");
         return;
       }
 
@@ -1136,12 +1318,21 @@ BASE64_END</div>
 
     function saveGithubSettingsToStorage(showStatus) {
       try {
+        const existingPaths = getStoredGithubPaths();
         const settings = {
           owner: githubOwner.value.trim(),
           repo: githubRepo.value.trim(),
           branch: githubBranch.value.trim(),
-          path: githubPath.value.trim(),
-          batchPath: githubBatchPath.value.trim(),
+          paths: {
+            image: {
+              path: currentMode === "image" ? githubPath.value.trim() : existingPaths.image.path,
+              batchPath: currentMode === "image" ? githubBatchPath.value.trim() : existingPaths.image.batchPath
+            },
+            fbx: {
+              path: currentMode === "fbx" ? githubPath.value.trim() : existingPaths.fbx.path,
+              batchPath: currentMode === "fbx" ? githubBatchPath.value.trim() : existingPaths.fbx.batchPath
+            }
+          },
           commitMessage: githubCommitMessage.value.trim(),
           authorName: githubAuthorName.value.trim(),
           authorEmail: githubAuthorEmail.value.trim(),
@@ -1167,24 +1358,22 @@ ${error.message}`, "error");
 
     function loadGithubSettingsFromStorage(showStatus) {
       try {
-        const raw = localStorage.getItem(GITHUB_SETTINGS_STORAGE_KEY);
-        if (!raw) {
+        const settings = safelyReadGithubSettings();
+        if (!settings) {
           if (showStatus) setStatus(githubStatus, "No saved GitHub settings found.", "");
           return;
         }
 
-        const settings = JSON.parse(raw);
         githubOwner.value = settings.owner || "";
         githubRepo.value = settings.repo || "";
         githubBranch.value = settings.branch || "main";
-        githubPath.value = settings.path || "ImageBase64_Export.txt";
-        githubBatchPath.value = settings.batchPath || "batch-transfers";
         githubCommitMessage.value = settings.commitMessage || "Update image base64 transfer text";
         githubAuthorName.value = settings.authorName || "";
         githubAuthorEmail.value = settings.authorEmail || "";
         githubApiVersion.value = settings.apiVersion || "2022-11-28";
         rememberGithubToken.checked = !!settings.rememberToken;
         githubToken.value = settings.rememberToken && settings.token ? settings.token : "";
+        applyGithubPathFields(settings);
 
         if (showStatus) {
           const tokenMessage = settings.rememberToken && settings.token
@@ -1201,21 +1390,23 @@ ${error.message}`, "error");
 
     function clearGithubSettingsFromStorage() {
       localStorage.removeItem(GITHUB_SETTINGS_STORAGE_KEY);
+      localStorage.removeItem("imageBase64Transfer.githubSettings.v1");
       githubOwner.value = "";
       githubRepo.value = "";
       githubBranch.value = "main";
-      githubPath.value = "ImageBase64_Export.txt";
-      githubBatchPath.value = "batch-transfers";
       githubToken.value = "";
       githubCommitMessage.value = "Update image base64 transfer text";
       githubAuthorName.value = "";
       githubAuthorEmail.value = "";
       githubApiVersion.value = "2022-11-28";
       rememberGithubToken.checked = false;
+      githubPath.value = getCurrentModeConfig().defaultGithubPath;
+      githubBatchPath.value = getCurrentModeConfig().defaultGithubBatchPath;
       setStatus(githubStatus, "Saved GitHub settings cleared.", "success");
     }
 
     function getGithubSettings() {
+      const modeConfig = getCurrentModeConfig();
       const settings = {
         owner: githubOwner.value.trim(),
         repo: githubRepo.value.trim(),
@@ -1226,7 +1417,9 @@ ${error.message}`, "error");
         commitMessage: githubCommitMessage.value.trim() || "Update image base64 transfer text",
         authorName: githubAuthorName.value.trim(),
         authorEmail: githubAuthorEmail.value.trim(),
-        apiVersion: githubApiVersion.value.trim() || "2022-11-28"
+        apiVersion: githubApiVersion.value.trim() || "2022-11-28",
+        mode: currentMode,
+        modeConfig
       };
 
       if (!settings.owner) throw new Error("GitHub Owner is required.");
@@ -1435,7 +1628,7 @@ ${error.message}`, "error");
       const lines = [];
       lines.push(HEADER);
       lines.push(`CREATED_UTC=${data.createdUtc}`);
-      lines.push("SOURCE_MODE=RawImageFileEncode");
+      lines.push(`SOURCE_MODE=${data.sourceMode || "RawImageFileEncode"}`);
       lines.push(`SOURCE=${data.source}`);
       lines.push(`FORMAT=${data.format}`);
       lines.push(`WIDTH=${data.width || 0}`);
@@ -1685,6 +1878,122 @@ ${error.message}`, "error");
       return [`File: ${file.name}`, `MIME: ${file.type || "unknown"}`, `Bytes: ${file.size}`, `Last Modified: ${file.lastModified ? new Date(file.lastModified).toISOString() : "unknown"}`].join("\n");
     }
 
+    function initializeMode() {
+      setCurrentMode(localStorage.getItem(MODE_STORAGE_KEY) || "image", false);
+    }
+
+    function setCurrentMode(mode, persist = true) {
+      currentMode = mode === "fbx" ? "fbx" : "image";
+      if (persist) localStorage.setItem(MODE_STORAGE_KEY, currentMode);
+      applyModeConfig();
+    }
+
+    function getCurrentModeConfig() {
+      return MODE_CONFIG[currentMode];
+    }
+
+    function applyModeConfig() {
+      const config = getCurrentModeConfig();
+      document.title = config.title;
+      heroDescription.textContent = config.heroDescription;
+      githubSettingsDescription.textContent = config.githubSettingsDescription;
+      githubPathLabel.textContent = "File Path";
+      githubPathHint.textContent = config.githubPathHint;
+      githubBatchPathLabel.textContent = "Batch Base Path";
+      githubBatchPathHint.textContent = config.githubBatchPathHint;
+      exportSectionTitle.textContent = config.exportSectionTitle;
+      exportSectionDescription.textContent = config.exportSectionDescription;
+      exportFileLabel.textContent = config.exportFileLabel;
+      exportFileHint.textContent = config.exportFileHint;
+      exportFile.setAttribute("accept", config.exportAccept);
+      exportFileNameLabel.textContent = config.exportFileNameLabel;
+      exportFileNameHint.textContent = config.exportFileNameHint;
+      exportMetadataTitle.textContent = config.exportMetadataTitle;
+      exportTextOutputLabel.textContent = config.exportTextOutputLabel;
+      exportTextOutputHint.textContent = config.exportTextOutputHint;
+      importSectionTitle.textContent = config.importSectionTitle;
+      importSectionDescription.textContent = config.importSectionDescription;
+      importTxtFileLabel.textContent = config.importTxtFileLabel;
+      importTxtFileHint.textContent = config.importTxtFileHint;
+      importTextInputLabel.textContent = config.importTextInputLabel;
+      importTextInputHint.textContent = config.importTextInputHint;
+      importTextInput.placeholder = config.importTextPlaceholder;
+      restoredFileNameLabel.textContent = config.restoredFileNameLabel;
+      restoredFileNameHint.textContent = config.restoredFileNameHint;
+      importMetadataTitle.textContent = config.importMetadataTitle;
+      batchSectionTitle.textContent = config.batchSectionTitle;
+      batchSectionDescription.textContent = config.batchSectionDescription;
+      batchExportFolderLabel.textContent = config.batchExportFolderLabel;
+      batchExportFolderHint.textContent = config.batchExportFolderHint;
+      batchExportFolder.setAttribute("accept", config.batchExportAccept);
+      batchImportFolderLabel.textContent = config.batchImportFolderLabel;
+      batchImportFolderHint.textContent = config.batchImportFolderHint;
+      exportPreviewWrap.classList.toggle("hidden", !config.supportsPreview);
+      importPreviewWrap.classList.toggle("hidden", !config.supportsPreview);
+      if (!config.supportsPreview) {
+        exportPreview.textContent = "Preview disabled in FBX mode";
+        importPreview.textContent = "Preview disabled in FBX mode";
+      }
+      modeButtons.forEach(button => {
+        const isActive = button.dataset.modeOption === currentMode;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      });
+      applyGithubPathFields();
+      if (!exportFileNameInput.value || exportFileNameInput.value === MODE_CONFIG.image.defaultExportTxtName || exportFileNameInput.value === MODE_CONFIG.fbx.defaultExportTxtName) {
+        exportFileNameInput.value = config.defaultExportTxtName;
+      }
+      if (!restoredFileNameInput.value || restoredFileNameInput.value === MODE_CONFIG.image.defaultRestoredName || restoredFileNameInput.value === MODE_CONFIG.fbx.defaultRestoredName) {
+        restoredFileNameInput.value = config.defaultRestoredName;
+      }
+      if (downloadTxtLink.classList.contains("disabled")) downloadTxtLink.download = config.defaultExportTxtName;
+      if (downloadImageLink.classList.contains("disabled")) downloadImageLink.download = config.defaultRestoredName;
+    }
+
+    function applyGithubPathFields(parsedSettings) {
+      const pathState = getStoredGithubPaths(parsedSettings);
+      const config = getCurrentModeConfig();
+      githubPath.value = pathState[currentMode].path || config.defaultGithubPath;
+      githubBatchPath.value = pathState[currentMode].batchPath || config.defaultGithubBatchPath;
+    }
+
+    function getStoredGithubPaths(parsedSettings) {
+      const raw = parsedSettings || safelyReadGithubSettings();
+      const defaults = {
+        image: { path: MODE_CONFIG.image.defaultGithubPath, batchPath: MODE_CONFIG.image.defaultGithubBatchPath },
+        fbx: { path: MODE_CONFIG.fbx.defaultGithubPath, batchPath: MODE_CONFIG.fbx.defaultGithubBatchPath }
+      };
+      if (!raw) return defaults;
+      if (raw.paths) {
+        return {
+          image: {
+            path: raw.paths.image && raw.paths.image.path ? raw.paths.image.path : defaults.image.path,
+            batchPath: raw.paths.image && raw.paths.image.batchPath ? raw.paths.image.batchPath : defaults.image.batchPath
+          },
+          fbx: {
+            path: raw.paths.fbx && raw.paths.fbx.path ? raw.paths.fbx.path : defaults.fbx.path,
+            batchPath: raw.paths.fbx && raw.paths.fbx.batchPath ? raw.paths.fbx.batchPath : defaults.fbx.batchPath
+          }
+        };
+      }
+      return {
+        image: {
+          path: raw.path || defaults.image.path,
+          batchPath: raw.batchPath || defaults.image.batchPath
+        },
+        fbx: defaults.fbx
+      };
+    }
+
+    function safelyReadGithubSettings() {
+      try {
+        const raw = localStorage.getItem(GITHUB_SETTINGS_STORAGE_KEY) || localStorage.getItem("imageBase64Transfer.githubSettings.v1");
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+
     async function pickOutputDirectory(purposeLabel) {
       if (typeof window.showDirectoryPicker !== "function") {
         appendBatchLog(`Directory picker unavailable. Using download fallback for ${purposeLabel}.`);
@@ -1904,6 +2213,7 @@ ${error.message}`, "error");
     }
 
     function suggestedRestoredName(format) {
+      if (isFbxFormat(format)) return MODE_CONFIG.fbx.defaultRestoredName;
       const ext = (format || "png").toLowerCase();
       const normalized = ext === "jpeg" ? "jpg" : ext;
       return `ImageBase64_Restored.${normalized || "png"}`;
@@ -1919,13 +2229,19 @@ ${error.message}`, "error");
         case "GIF": return "image/gif";
         case "BMP": return "image/bmp";
         case "SVG": return "image/svg+xml";
+        case "FBX": return "application/octet-stream";
         default: return getMimeTypeFromBytes(bytes) || "application/octet-stream";
       }
+    }
+
+    function isFbxFormat(format) {
+      return (format || "").toUpperCase() === "FBX";
     }
 
     function normalizeOutputExtension(format, bytes) {
       const upper = (format || "").toUpperCase();
       switch (upper) {
+        case "FBX": return "fbx";
         case "PNG": return "png";
         case "JPG":
         case "JPEG": return "jpg";
