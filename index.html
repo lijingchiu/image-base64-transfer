@@ -615,6 +615,9 @@ BASE64_END</div>
     const HEADER = "UNITY_IMAGE_BASE64_TRANSFER_V1";
     const BASE64_BEGIN = "BASE64_BEGIN";
     const BASE64_END = "BASE64_END";
+    const MULTIPART_HEADER = "UNITY_IMAGE_BASE64_TRANSFER_MULTIPART_V1";
+    const GITHUB_TEXT_FILE_MAX_CHARS = 700000;
+    const GITHUB_MULTIPART_PART_CHARS = 500000;
     const THEME_STORAGE_KEY = "imageBase64Transfer.theme.v1";
     const systemThemeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -797,37 +800,9 @@ BASE64_END</div>
 
         const settings = getGithubSettings();
         setStatus(githubStatus, "Preparing GitHub update...", "");
-
-        const existing = await githubGetContent(settings, true);
-        const textBase64 = utf8ToBase64(text);
-
-        const body = {
-          message: settings.commitMessage,
-          content: textBase64
-        };
-
-        if (settings.branch) body.branch = settings.branch;
-        if (existing && existing.sha) body.sha = existing.sha;
-        if (settings.authorName || settings.authorEmail) {
-          if (!settings.authorName || !settings.authorEmail) {
-            throw new Error("Author name and author email must be filled together, or both left empty.");
-          }
-          body.author = { name: settings.authorName, email: settings.authorEmail };
-          body.committer = { name: settings.authorName, email: settings.authorEmail };
-        }
-
-        const response = await fetch(githubContentUrl(settings), {
-          method: "PUT",
-          headers: githubHeaders(settings),
-          body: JSON.stringify(body)
-        });
-
-        const data = await readGithubResponse(response);
-        if (!response.ok) throw new Error(formatGithubError("GitHub update failed", data));
-
-        const commitSha = data.commit && data.commit.sha ? data.commit.sha : "unknown";
-        const htmlUrl = data.content && data.content.html_url ? data.content.html_url : "";
-        setStatus(githubStatus, `Export to GitHub succeeded.\nPath: ${settings.path}\nCommit: ${commitSha}${htmlUrl ? "\nURL: " + htmlUrl : ""}`, "success");
+        const branch = await resolveGithubBranch(settings);
+        const result = await githubUpsertBatchTextFile(settings, branch, settings.path, text, settings.commitMessage);
+        setStatus(githubStatus, `Export to GitHub succeeded.\nPath: ${settings.path}\nBranch: ${branch}${result.multipart ? `\nMultipart: ${result.partCount} parts` : ""}`, "success");
       } catch (error) {
         setStatus(githubStatus, `Export to GitHub failed:\n${error.message}`, "error");
       }
@@ -838,15 +813,14 @@ BASE64_END</div>
         const settings = getGithubSettings();
         setStatus(githubStatus, "Fetching GitHub file...", "");
 
-        const data = await githubGetContent(settings, false);
-        if (!data || data.type !== "file") throw new Error("GitHub path is not a file.");
-        const text = await githubDecodeFileResponse(settings, data, settings.path);
+        const branch = await resolveGithubBranch(settings);
+        const text = await githubFetchTextFile(settings, branch, settings.path);
         importMode.value = "text";
         importFilePanel.classList.add("hidden");
         importTextPanel.classList.remove("hidden");
         importTextInput.value = text;
 
-        setStatus(githubStatus, `Import from GitHub succeeded.\nPath: ${settings.path}\nSHA: ${data.sha || "unknown"}`, "success");
+        setStatus(githubStatus, `Import from GitHub succeeded.\nPath: ${settings.path}\nBranch: ${branch}`, "success");
         await decodeContentToImage(text, "GitHub: " + settings.path);
       } catch (error) {
         setStatus(githubStatus, `Import from GitHub failed:\n${error.message}`, "error");
@@ -1018,8 +992,8 @@ BASE64_END</div>
           const exportData = await buildExportDataFromFile(file);
           const relativePath = getRelativePath(file);
           const targetPath = joinGithubPath(basePath, replaceExtension(relativePath, ".txt"));
-          await githubUpsertTextFile(settings, branch, targetPath, exportData.text, `${settings.commitMessage} [batch export] ${relativePath}`);
-          appendBatchLog(`OK  GITHUB EXPORT  ${relativePath} -> ${targetPath}`);
+          const uploadResult = await githubUpsertBatchTextFile(settings, branch, targetPath, exportData.text, `${settings.commitMessage} [batch export] ${relativePath}`);
+          appendBatchLog(`OK  GITHUB EXPORT  ${relativePath} -> ${targetPath}${uploadResult.multipart ? ` (${uploadResult.partCount} parts)` : ""}`);
           successCount += 1;
         }
 
@@ -1037,7 +1011,7 @@ BASE64_END</div>
         const settings = getGithubSettings();
         const basePath = getGithubBatchBasePath(settings);
         const branch = await resolveGithubBranch(settings);
-        const txtPaths = await githubListBatchTextPaths(settings, branch, basePath);
+        const txtPaths = await githubListBatchTextPaths(settings, branch, basePath, true);
 
         if (!txtPaths.length) throw new Error(`No .txt files found under GitHub batch path: ${basePath}`);
 
@@ -1083,7 +1057,7 @@ BASE64_END</div>
         const settings = getGithubSettings();
         const basePath = getGithubBatchBasePath(settings);
         const branch = await resolveGithubBranch(settings);
-        const txtPaths = await githubListBatchTextPaths(settings, branch, basePath);
+        const txtPaths = await githubListBatchTextPaths(settings, branch, basePath, false);
 
         if (!txtPaths.length) {
           setStatus(batchStatus, `Batch GitHub clear finished.\nNo .txt files found under ${basePath}.`, "success");
@@ -1280,6 +1254,25 @@ ${error.message}`, "error");
       return data;
     }
 
+    async function githubUpsertBatchTextFile(settings, branch, targetPath, text, commitMessage) {
+      if (text.length <= GITHUB_TEXT_FILE_MAX_CHARS) {
+        await githubUpsertTextFile(settings, branch, targetPath, text, commitMessage);
+        return { multipart: false, partCount: 1 };
+      }
+
+      const partPaths = [];
+      const partContents = splitTextForGithubMultipart(text);
+      for (let i = 0; i < partContents.length; i++) {
+        const partPath = buildMultipartPartPath(targetPath, i + 1);
+        await githubUpsertTextFile(settings, branch, partPath, partContents[i], `${commitMessage} [part ${i + 1}/${partContents.length}]`);
+        partPaths.push(partPath);
+      }
+
+      const manifestText = buildMultipartManifest(targetPath, text, partPaths);
+      await githubUpsertTextFile(settings, branch, targetPath, manifestText, `${commitMessage} [manifest]`);
+      return { multipart: true, partCount: partPaths.length };
+    }
+
     async function githubDeleteFile(settings, branch, targetPath, sha, commitMessage) {
       const body = { message: commitMessage, sha, branch };
 
@@ -1305,7 +1298,17 @@ ${error.message}`, "error");
     async function githubFetchTextFile(settings, branch, targetPath) {
       const data = await githubFetchContentByPath(settings, branch, targetPath, false);
       if (!data || data.type !== "file") throw new Error(`GitHub path is not a file: ${targetPath}`);
-      return await githubDecodeFileResponse(settings, data, targetPath);
+      const text = await githubDecodeFileResponse(settings, data, targetPath);
+      const manifest = parseMultipartManifest(text);
+      if (!manifest) return text;
+
+      const parts = [];
+      for (const partPath of manifest.parts) {
+        const partData = await githubFetchContentByPath(settings, branch, partPath, false);
+        if (!partData || partData.type !== "file") throw new Error(`GitHub multipart path is not a file: ${partPath}`);
+        parts.push(await githubDecodeFileResponse(settings, partData, partPath));
+      }
+      return parts.join("");
     }
 
     async function githubDecodeFileResponse(settings, data, targetPath) {
@@ -1335,7 +1338,7 @@ ${error.message}`, "error");
       return data.default_branch;
     }
 
-    async function githubListBatchTextPaths(settings, branch, basePath) {
+    async function githubListBatchTextPaths(settings, branch, basePath, excludeMultipartParts = true) {
       const commitResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(settings.owner)}/${encodeURIComponent(settings.repo)}/commits/${encodeURIComponent(branch)}`, {
         method: "GET",
         headers: githubHeaders(settings)
@@ -1354,12 +1357,15 @@ ${error.message}`, "error");
       if (!treeResponse.ok) throw new Error(formatGithubError("GitHub tree lookup failed", treeData));
       if (!Array.isArray(treeData.tree)) throw new Error("GitHub tree lookup returned no tree entries.");
 
-      return treeData.tree
+      let paths = treeData.tree
         .filter(entry => entry && entry.type === "blob" && typeof entry.path === "string")
         .map(entry => entry.path)
         .filter(path => path.toLowerCase().endsWith(".txt"))
         .filter(path => path === basePath || path.startsWith(basePath + "/"))
         .sort((a, b) => a.localeCompare(b));
+
+      if (excludeMultipartParts) paths = paths.filter(path => !isMultipartPartPath(path));
+      return paths;
     }
 
     async function readGithubResponse(response) {
@@ -1391,6 +1397,42 @@ ${error.message}`, "error");
       for (let i = 0; i < data.base64.length; i += data.lineLength) lines.push(data.base64.slice(i, i + data.lineLength));
       lines.push(BASE64_END);
       return lines.join("\n");
+    }
+
+    function buildMultipartManifest(targetPath, fullText, partPaths) {
+      return [
+        MULTIPART_HEADER,
+        `TARGET_PATH=${targetPath}`,
+        `FULL_TEXT_LENGTH=${fullText.length}`,
+        `PART_COUNT=${partPaths.length}`,
+        ...partPaths.map((path, index) => `PART_${String(index + 1).padStart(3, "0")}=${path}`)
+      ].join("\n");
+    }
+
+    function parseMultipartManifest(text) {
+      const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      const lines = normalized.split("\n").map(line => line.trim()).filter(Boolean);
+      if (!lines.length || lines[0] !== MULTIPART_HEADER) return null;
+
+      const parts = [];
+      for (const line of lines.slice(1)) {
+        const equalsIndex = line.indexOf("=");
+        if (equalsIndex <= 0) continue;
+        const key = line.slice(0, equalsIndex).trim();
+        const value = line.slice(equalsIndex + 1).trim();
+        if (/^PART_\d+$/.test(key) && value) parts.push(value);
+      }
+
+      if (!parts.length) throw new Error("Multipart manifest has no part entries.");
+      return { parts };
+    }
+
+    function splitTextForGithubMultipart(text) {
+      const parts = [];
+      for (let i = 0; i < text.length; i += GITHUB_MULTIPART_PART_CHARS) {
+        parts.push(text.slice(i, i + GITHUB_MULTIPART_PART_CHARS));
+      }
+      return parts;
     }
 
     async function buildExportDataFromFile(file) {
@@ -1732,6 +1774,15 @@ ${error.message}`, "error");
 
     function replaceExtension(filePath, nextExtension) {
       return filePath.replace(/\.[^/.]+$/, "") + nextExtension;
+    }
+
+    function buildMultipartPartPath(targetPath, partIndex) {
+      const partSuffix = `.part${String(partIndex).padStart(3, "0")}.txt`;
+      return targetPath.replace(/\.txt$/i, partSuffix);
+    }
+
+    function isMultipartPartPath(filePath) {
+      return /\.part\d+\.txt$/i.test(filePath);
     }
 
     function joinGithubPath(basePath, relativePath) {
