@@ -947,24 +947,25 @@ BASE64_END</div>
 
     async function batchImportTextsToImages() {
       const txtFiles = collectBatchFiles(batchImportFolder.files, [".txt"]);
-      if (!txtFiles.length) {
+      const normalizedFiles = buildLocalBatchImportEntries(txtFiles);
+      if (!normalizedFiles.length) {
         setStatus(batchStatus, "Batch import failed:\nNo .txt files found in selected folder.", "error");
         return;
       }
 
       clearBatchLog();
-      appendBatchLog(`Batch import start. Files: ${txtFiles.length}`);
+      appendBatchLog(`Batch import start. Files: ${normalizedFiles.length}`);
 
       try {
         const outputDirectory = await pickOutputDirectory("restored image files");
         let successCount = 0;
 
-        for (const file of txtFiles) {
-          const content = await file.text();
-          const decoded = await decodeTextContentToBinary(content, "Batch Txt: " + getRelativePath(file));
-          const relativePath = getRelativePath(file);
+        for (const entry of normalizedFiles) {
+          const content = await resolveLocalBatchImportText(entry);
+          const decoded = await decodeTextContentToBinary(content, "Batch Txt: " + entry.relativePath);
+          const relativePath = entry.relativePath;
           const targetRelativePath = replaceExtension(relativePath, "." + decoded.outputExtension);
-          const targetName = replaceExtension(file.name, "." + decoded.outputExtension);
+          const targetName = replaceExtension(entry.file.name, "." + decoded.outputExtension);
 
           if (outputDirectory) {
             await writeFileToDirectory(outputDirectory, targetRelativePath, decoded.bytes, decoded.mimeType);
@@ -1567,6 +1568,30 @@ ${error.message}`, "error");
       return { parsed, bytes, sha256: actualSha256, mimeType, outputExtension: normalizedExtension };
     }
 
+    function buildLocalBatchImportEntries(files) {
+      const fileMap = new Map();
+      for (const file of files) fileMap.set(getRelativePath(file), file);
+
+      return files
+        .filter(file => !isMultipartPartPath(getRelativePath(file)))
+        .map(file => ({ file, relativePath: getRelativePath(file), fileMap }));
+    }
+
+    async function resolveLocalBatchImportText(entry) {
+      const content = await entry.file.text();
+      const manifest = parseMultipartManifest(content);
+      if (!manifest) return content;
+
+      const parts = [];
+      for (const partPath of manifest.parts) {
+        const normalizedPartPath = normalizeLocalMultipartPartPath(entry.relativePath, partPath);
+        const partFile = entry.fileMap.get(normalizedPartPath);
+        if (!partFile) throw new Error(`Missing local multipart file: ${normalizedPartPath}`);
+        parts.push(await partFile.text());
+      }
+      return parts.join("");
+    }
+
     function stripPlainBase64Text(content) { return content.replace(/\s+/g, ""); }
 
     function uint8ArrayToBase64(bytes) {
@@ -1837,6 +1862,15 @@ ${error.message}`, "error");
 
     function isMultipartPartPath(filePath) {
       return /\.part\d+\.txt$/i.test(filePath);
+    }
+
+    function normalizeLocalMultipartPartPath(manifestRelativePath, partPath) {
+      if (!partPath) return partPath;
+      const cleanPartPath = partPath.replace(/^\/+/, "");
+      if (cleanPartPath.includes("/")) return cleanPartPath;
+      const segments = manifestRelativePath.split("/");
+      segments.pop();
+      return segments.length ? `${segments.join("/")}/${cleanPartPath}` : cleanPartPath;
     }
 
     function joinGithubPath(basePath, relativePath) {
