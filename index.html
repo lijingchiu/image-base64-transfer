@@ -402,7 +402,7 @@
   <main>
     <div class="topbar">
       <div>
-        <h1>Image Base64 Transfer</h1>
+        <h1 id="pageTitle">Image Base64 Transfer</h1>
         <p id="heroDescription">純前端工具。圖片與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。</p>
       </div>
 
@@ -411,6 +411,7 @@
           <span class="mode-switcher-label">Mode</span>
           <button id="modeImageButton" class="mode-button secondary" type="button" data-mode-option="image" aria-pressed="false">Image</button>
           <button id="modeFbxButton" class="mode-button secondary" type="button" data-mode-option="fbx" aria-pressed="false">FBX</button>
+          <button id="modeVideoButton" class="mode-button secondary" type="button" data-mode-option="video" aria-pressed="false">Video</button>
         </div>
 
         <div class="theme-switcher" aria-label="Theme Switcher">
@@ -428,7 +429,7 @@
       </div>
     </div>
 
-    <div class="notice">
+    <div class="notice" id="workflowNotice">
       建議流程：圖片 → 匯出 Base64 txt → Export to GitHub → 另一端 Import from GitHub → 還原圖片。GitHub Token 不會被存進瀏覽器儲存空間，但會存在目前頁面的記憶體中直到重新整理。
     </div>
 
@@ -679,12 +680,14 @@ BASE64_END</div>
     const MODE_CONFIG = {
       image: {
         title: "Image Base64 Transfer",
+        workflowNotice: "建議流程：圖片 → 匯出 Base64 txt → Export to GitHub → 另一端 Import from GitHub → 還原圖片。GitHub Token 不會被存進瀏覽器儲存空間，但會存在目前頁面的記憶體中直到重新整理。",
         heroDescription: "純前端工具。圖片與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。",
         githubSettingsDescription: "指定要讀寫的 Repo 與檔案路徑。Export to GitHub 會更新這個檔案並建立 commit；Import from GitHub 會讀取同一個檔案。",
         githubPathHint: "Repo 內的 txt 檔路徑，例如 transfers/ImageBase64_Export.txt。",
         githubBatchPathHint: "批量模式用的 repo 資料夾路徑，例如 transfers/batch。上傳時會在此路徑下保留子資料夾結構。",
         defaultGithubPath: "ImageBase64_Export.txt",
         defaultGithubBatchPath: "batch-transfers",
+        defaultCommitMessage: "Update image base64 transfer text",
         exportSectionTitle: "Export：圖片 → Base64 文字",
         exportSectionDescription: "選擇圖片檔後，工具會直接讀取原始檔案 bytes 並轉成 Base64。這是檔案級轉換，保真度最高。",
         exportFileLabel: "Source Image File",
@@ -715,17 +718,25 @@ BASE64_END</div>
         batchImportFolderLabel: "Source Txt Folder",
         batchImportFolderHint: "選擇包含本工具輸出 `.txt` 的資料夾。子資料夾也會一起掃描。",
         batchExtensions: [".png", ".tga"],
-        supportsPreview: true,
+        previewKind: "image",
+        previewDisabledText: "Preview disabled in Image mode",
+        emptyExportMeta: "No image loaded.",
+        emptyImportMeta: "No image decoded.",
+        importSuccessText: "Import succeeded. You can now download the restored image.",
+        downloadRestoredLabel: "Download Image",
+        decodeButtonLabel: "Import Base64 Text To Image",
         sourceMode: "RawImageFileEncode"
       },
       fbx: {
         title: "FBX Base64 Transfer",
+        workflowNotice: "建議流程：FBX → 匯出 Base64 txt → Export to GitHub → 另一端 Import from GitHub → 還原 FBX。GitHub Token 不會被存進瀏覽器儲存空間，但會存在目前頁面的記憶體中直到重新整理。",
         heroDescription: "純前端工具。FBX 與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。FBX 模式只保證原始 bytes 一致，不處理貼圖與材質。",
         githubSettingsDescription: "指定要讀寫的 Repo 與檔案路徑。FBX 模式與 Image 模式各自使用獨立的 File Path / Batch Base Path，避免混用。",
         githubPathHint: "Repo 內的 FBX txt 檔路徑，例如 transfers/FbxBase64_Export.txt。",
         githubBatchPathHint: "FBX 批量模式用的 repo 資料夾路徑，例如 fbx-batch-transfers。上傳時會在此路徑下保留子資料夾結構。",
         defaultGithubPath: "FbxBase64_Export.txt",
         defaultGithubBatchPath: "fbx-batch-transfers",
+        defaultCommitMessage: "Update fbx base64 transfer text",
         exportSectionTitle: "Export：FBX → Base64 文字",
         exportSectionDescription: "選擇 `.fbx` 檔後，工具會直接讀取原始檔案 bytes 並轉成 Base64。這是檔案級轉換，目標是 round-trip 後 SHA256 與 BYTE_LENGTH 完全一致。",
         exportFileLabel: "Source FBX File",
@@ -756,8 +767,63 @@ BASE64_END</div>
         batchImportFolderLabel: "Source FBX Txt Folder",
         batchImportFolderHint: "選擇包含 FBX `.txt` 的資料夾。子資料夾也會一起掃描。",
         batchExtensions: [".fbx"],
-        supportsPreview: false,
+        previewKind: "none",
+        previewDisabledText: "Preview disabled in FBX mode",
+        emptyExportMeta: "No FBX loaded.",
+        emptyImportMeta: "No FBX decoded.",
+        importSuccessText: "Import succeeded. You can now download the restored FBX.",
+        downloadRestoredLabel: "Download FBX",
+        decodeButtonLabel: "Import Base64 Text To FBX",
         sourceMode: "RawFbxFileEncode"
+      },
+      video: {
+        title: "Video Base64 Transfer",
+        workflowNotice: "建議流程：影片 → 匯出 Base64 txt → Export to GitHub → 另一端 Import from GitHub → 還原影片。影片 txt 可能很大，GitHub 上傳時會自動分片，下載端也會自動合併。",
+        heroDescription: "純前端工具。影片與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。大型影片轉成 txt 後會自動走 GitHub multipart 分片流程。",
+        githubSettingsDescription: "指定要讀寫的 Repo 與檔案路徑。Video 模式與 Image / FBX 模式各自使用獨立的 File Path / Batch Base Path，避免混用。",
+        githubPathHint: "Repo 內的 Video txt 檔路徑，例如 transfers/VideoBase64_Export.txt。",
+        githubBatchPathHint: "Video 批量模式用的 repo 資料夾路徑，例如 video-batch-transfers。上傳時會在此路徑下保留子資料夾結構；過大的 txt 會自動分片。",
+        defaultGithubPath: "VideoBase64_Export.txt",
+        defaultGithubBatchPath: "video-batch-transfers",
+        defaultCommitMessage: "Update video base64 transfer text",
+        exportSectionTitle: "Export：影片 → Base64 文字",
+        exportSectionDescription: "選擇影片檔後，工具會直接讀取原始檔案 bytes 並轉成 Base64。這是檔案級轉換，目標是 round-trip 後 SHA256 與 BYTE_LENGTH 完全一致。",
+        exportFileLabel: "Source Video File",
+        exportFileHint: "選擇要轉成文字的影片。影片預覽取決於瀏覽器支援，但 Base64 轉換會保留原始檔案 bytes。",
+        exportAccept: "video/*,.mp4,.mov,.webm,.m4v,.avi,.mkv,.ogv",
+        exportFileNameLabel: "Output Txt File Name",
+        exportFileNameHint: "下載 txt 時使用的檔名。",
+        defaultExportTxtName: "VideoBase64_Export.txt",
+        exportMetadataTitle: "Export Metadata",
+        exportTextOutputLabel: "Generated Txt Content",
+        exportTextOutputHint: "這裡會產生完整 txt 內容，包含 metadata、SHA256、BASE64_BEGIN / BASE64_END。若上傳到 GitHub 時過大，會自動拆成多個 parts。",
+        importSectionTitle: "Import：Base64 文字 → 影片",
+        importSectionDescription: "可匯入 txt 檔、直接貼上整份 txt 內容，或從 GitHub 指定檔案讀取，再還原成影片。",
+        importTxtFileLabel: "Video Base64 Txt File",
+        importTxtFileHint: "選擇由本工具輸出的 Video txt，也可選擇只包含純 Base64 的 txt。",
+        importTextInputLabel: "Full Txt Content",
+        importTextInputHint: "直接貼上完整 txt 內容。可以包含 metadata，也可以只貼純 Base64。",
+        importTextPlaceholder: "Paste full exported Video txt content or plain Base64 here...",
+        restoredFileNameLabel: "Restored Video File Name",
+        restoredFileNameHint: "下載還原影片時使用的檔名。副檔名要符合原始影片格式，例如 .mp4 / .mov / .webm。",
+        defaultRestoredName: "VideoBase64_Restored.mp4",
+        importMetadataTitle: "Import Metadata",
+        batchSectionTitle: "Batch：影片資料夾批量匯出 / 匯入",
+        batchSectionDescription: "可一次選整個資料夾處理多個影片。批量上傳到 GitHub 時，如果單一 txt 太大，會自動分片並在下載端自動合併。",
+        batchExportFolderLabel: "Source Video Folder",
+        batchExportFolderHint: "選擇包含影片檔案的資料夾。子資料夾也會一起掃描。",
+        batchExportAccept: ".mp4,.mov,.webm,.m4v,.avi,.mkv,.ogv,video/*",
+        batchImportFolderLabel: "Source Video Txt Folder",
+        batchImportFolderHint: "選擇包含 Video `.txt` 的資料夾。子資料夾也會一起掃描。",
+        batchExtensions: [".mp4", ".mov", ".webm", ".m4v", ".avi", ".mkv", ".ogv"],
+        previewKind: "video",
+        previewDisabledText: "Preview disabled in Video mode",
+        emptyExportMeta: "No video loaded.",
+        emptyImportMeta: "No video decoded.",
+        importSuccessText: "Import succeeded. You can now download the restored video.",
+        downloadRestoredLabel: "Download Video",
+        decodeButtonLabel: "Import Base64 Text To Video",
+        sourceMode: "RawVideoFileEncode"
       }
     };
 
@@ -818,11 +884,14 @@ BASE64_END</div>
     const clearBatchButton = document.getElementById("clearBatchButton");
     const batchStatus = document.getElementById("batchStatus");
     const batchLog = document.getElementById("batchLog");
+    const pageTitle = document.getElementById("pageTitle");
+    const workflowNotice = document.getElementById("workflowNotice");
     const themeLightButton = document.getElementById("themeLightButton");
     const themeDarkButton = document.getElementById("themeDarkButton");
     const themeSystemButton = document.getElementById("themeSystemButton");
     const modeImageButton = document.getElementById("modeImageButton");
     const modeFbxButton = document.getElementById("modeFbxButton");
+    const modeVideoButton = document.getElementById("modeVideoButton");
     const heroDescription = document.getElementById("heroDescription");
     const githubSettingsDescription = document.getElementById("githubSettingsDescription");
     const githubPathLabel = document.getElementById("githubPathLabel");
@@ -856,7 +925,7 @@ BASE64_END</div>
     const batchImportFolderLabel = document.getElementById("batchImportFolderLabel");
     const batchImportFolderHint = document.getElementById("batchImportFolderHint");
     const themeButtons = [themeLightButton, themeDarkButton, themeSystemButton];
-    const modeButtons = [modeImageButton, modeFbxButton];
+    const modeButtons = [modeImageButton, modeFbxButton, modeVideoButton];
 
     let exportTxtObjectUrl = null;
     let importImageObjectUrl = null;
@@ -917,19 +986,15 @@ BASE64_END</div>
     exportFile.addEventListener("change", () => {
       const file = exportFile.files && exportFile.files[0];
       if (!file) return;
-      if (getCurrentModeConfig().supportsPreview) {
-        renderFilePreview(file, exportPreview);
-      } else {
-        exportPreview.textContent = "Preview disabled in FBX mode";
-      }
-      exportMeta.textContent = buildBasicFileMeta(file);
+      renderFilePreview(file, exportPreview, getCurrentModeConfig());
+      exportMeta.textContent = buildBasicFileMeta(file, getCurrentModeConfig());
       if (!githubPath.value.trim()) githubPath.value = sanitizeFileName(file.name + ".txt", getCurrentModeConfig().defaultGithubPath);
     });
 
     async function encodeSelectedImageToText() {
       try {
         const file = exportFile.files && exportFile.files[0];
-        if (!file) throw new Error("No source image file selected.");
+        if (!file) throw new Error(`No source ${getCurrentModeLabel()} file selected.`);
         const modeConfig = getCurrentModeConfig();
 
         const lineLength = Math.max(256, parseInt(lineLengthInput.value || "8000", 10));
@@ -939,7 +1004,7 @@ BASE64_END</div>
         const bytes = new Uint8Array(arrayBuffer);
         const base64 = uint8ArrayToBase64(bytes);
         const sha256 = await calculateSHA256(bytes);
-        const imageSize = modeConfig.supportsPreview ? await getImageSizeFromFile(file) : { width: 0, height: 0 };
+        const assetSize = modeConfig.previewKind === "none" ? { width: 0, height: 0 } : await getAssetDimensionsFromFile(file, modeConfig.previewKind);
         const extension = getExtension(file.name).toUpperCase() || "UNKNOWN";
         const createdUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 
@@ -947,9 +1012,9 @@ BASE64_END</div>
           createdUtc,
           source: file.name,
           sourceMode: modeConfig.sourceMode,
-          format: currentMode === "fbx" ? "FBX" : extension,
-          width: imageSize.width,
-          height: imageSize.height,
+          format: getExportFormatForCurrentMode(extension),
+          width: assetSize.width,
+          height: assetSize.height,
           byteLength: bytes.byteLength,
           base64Length: base64.length,
           lineLength,
@@ -960,10 +1025,10 @@ BASE64_END</div>
         exportTextOutput.value = text;
         exportMeta.textContent = [
           `File: ${file.name}`,
-          `Format: ${currentMode === "fbx" ? "FBX" : extension}`,
+          `Format: ${getExportFormatForCurrentMode(extension)}`,
           `MIME: ${file.type || "unknown"}`,
-          currentMode === "fbx" ? "Preview: disabled in FBX mode" : `Size: ${imageSize.width || 0} x ${imageSize.height || 0}`,
-          `${currentMode === "fbx" ? "File" : "Image"} Bytes: ${bytes.byteLength}`,
+          modeConfig.previewKind === "none" ? `Preview: ${modeConfig.previewDisabledText}` : `Size: ${assetSize.width || 0} x ${assetSize.height || 0}`,
+          `${getModeBytesLabel()}: ${bytes.byteLength}`,
           `Base64 Length: ${base64.length}`,
           `SHA256: ${sha256}`
         ].filter(Boolean).join("\n");
@@ -1052,24 +1117,21 @@ BASE64_END</div>
 
       downloadImageLink.href = importImageObjectUrl;
       downloadImageLink.download = restoredName;
-      downloadImageLink.textContent = "Download Image";
+      downloadImageLink.textContent = getDownloadLabelForFormat(parsed.format);
       downloadImageLink.classList.remove("disabled");
 
-      if (isFbxFormat(parsed.format)) {
-        importPreview.textContent = "Preview disabled in FBX mode";
-      } else {
-        renderBlobPreview(blob, importPreview);
-      }
+      renderBlobPreview(blob, importPreview, parsed.format);
 
-      const loadedSize = isFbxFormat(parsed.format)
+      const previewKind = getPreviewKindForFormat(parsed.format);
+      const loadedSize = previewKind === "none"
         ? { width: 0, height: 0 }
-        : await getImageSizeFromBlob(blob).catch(() => ({ width: 0, height: 0 }));
+        : await getAssetDimensionsFromBlob(blob, previewKind).catch(() => ({ width: 0, height: 0 }));
       lastImportMetadata = [
         `Input: ${inputDescription}`,
         `Format: ${parsed.format || "UNKNOWN"}`,
-        isFbxFormat(parsed.format) ? null : `Expected Size: ${(parsed.width || 0)} x ${(parsed.height || 0)}`,
-        isFbxFormat(parsed.format) ? null : `Loaded Size: ${(loadedSize.width || 0)} x ${(loadedSize.height || 0)}`,
-        `${isFbxFormat(parsed.format) ? "File" : "Image"} Bytes: ${bytes.byteLength}`,
+        previewKind === "none" ? null : `Expected Size: ${(parsed.width || 0)} x ${(parsed.height || 0)}`,
+        previewKind === "none" ? null : `Loaded Size: ${(loadedSize.width || 0)} x ${(loadedSize.height || 0)}`,
+        `${getBytesLabelForFormat(parsed.format)}: ${bytes.byteLength}`,
         `SHA256: ${actualSha256}`,
         parsed.sha256 ? `SHA256 Validation: ${parsed.sha256.toLowerCase() === actualSha256.toLowerCase() ? "PASS" : "FAIL"}` : "SHA256 Validation: no expected hash in text",
         parsed.byteLength > 0 ? `BYTE_LENGTH Validation: ${parsed.byteLength === bytes.byteLength ? "PASS" : "FAIL"}` : "BYTE_LENGTH Validation: no expected length in text"
@@ -1077,7 +1139,7 @@ BASE64_END</div>
 
       importMeta.textContent = lastImportMetadata;
       copyImportedMetaButton.disabled = false;
-      setStatus(importStatus, "Import succeeded. You can now download the restored image.", "success");
+      setStatus(importStatus, getImportSuccessTextForFormat(parsed.format), "success");
     }
 
     async function getImportContent() {
@@ -1139,7 +1201,7 @@ BASE64_END</div>
       appendBatchLog(`Batch import start. Files: ${normalizedFiles.length}`);
 
       try {
-        const outputDirectory = await pickOutputDirectory("restored image files");
+        const outputDirectory = await pickOutputDirectory(`restored ${getCurrentModeLabel()} files`);
         let successCount = 0;
 
         for (const entry of normalizedFiles) {
@@ -1210,7 +1272,7 @@ BASE64_END</div>
 
         if (!txtPaths.length) throw new Error(`No .txt files found under GitHub batch path: ${basePath}`);
 
-        const outputDirectory = await pickOutputDirectory("GitHub batch restored image files");
+        const outputDirectory = await pickOutputDirectory(`GitHub batch restored ${getCurrentModeLabel()} files`);
         let successCount = 0;
 
         for (const txtPath of txtPaths) {
@@ -1331,6 +1393,10 @@ BASE64_END</div>
             fbx: {
               path: currentMode === "fbx" ? githubPath.value.trim() : existingPaths.fbx.path,
               batchPath: currentMode === "fbx" ? githubBatchPath.value.trim() : existingPaths.fbx.batchPath
+            },
+            video: {
+              path: currentMode === "video" ? githubPath.value.trim() : existingPaths.video.path,
+              batchPath: currentMode === "video" ? githubBatchPath.value.trim() : existingPaths.video.batchPath
             }
           },
           commitMessage: githubCommitMessage.value.trim(),
@@ -1367,7 +1433,7 @@ ${error.message}`, "error");
         githubOwner.value = settings.owner || "";
         githubRepo.value = settings.repo || "";
         githubBranch.value = settings.branch || "main";
-        githubCommitMessage.value = settings.commitMessage || "Update image base64 transfer text";
+        githubCommitMessage.value = settings.commitMessage || getCurrentModeConfig().defaultCommitMessage;
         githubAuthorName.value = settings.authorName || "";
         githubAuthorEmail.value = settings.authorEmail || "";
         githubApiVersion.value = settings.apiVersion || "2022-11-28";
@@ -1395,7 +1461,7 @@ ${error.message}`, "error");
       githubRepo.value = "";
       githubBranch.value = "main";
       githubToken.value = "";
-      githubCommitMessage.value = "Update image base64 transfer text";
+      githubCommitMessage.value = getCurrentModeConfig().defaultCommitMessage;
       githubAuthorName.value = "";
       githubAuthorEmail.value = "";
       githubApiVersion.value = "2022-11-28";
@@ -1414,7 +1480,7 @@ ${error.message}`, "error");
         path: githubPath.value.trim().replace(/^\/+/, ""),
         batchPath: githubBatchPath.value.trim().replace(/^\/+|\/+$/g, ""),
         token: githubToken.value.trim(),
-        commitMessage: githubCommitMessage.value.trim() || "Update image base64 transfer text",
+        commitMessage: githubCommitMessage.value.trim() || modeConfig.defaultCommitMessage,
         authorName: githubAuthorName.value.trim(),
         authorEmail: githubAuthorEmail.value.trim(),
         apiVersion: githubApiVersion.value.trim() || "2022-11-28",
@@ -1680,20 +1746,22 @@ ${error.message}`, "error");
     }
 
     async function buildExportDataFromFile(file) {
+      const modeConfig = getCurrentModeConfig();
       const lineLength = Math.max(256, parseInt(lineLengthInput.value || "8000", 10));
       const arrayBuffer = await file.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       const base64 = uint8ArrayToBase64(bytes);
       const sha256 = await calculateSHA256(bytes);
       const extension = getExtension(file.name).toUpperCase() || "UNKNOWN";
-      const imageSize = await getImageSizeFromFile(file);
+      const assetSize = modeConfig.previewKind === "none" ? { width: 0, height: 0 } : await getAssetDimensionsFromFile(file, modeConfig.previewKind);
       const createdUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
       const text = buildExportText({
         createdUtc,
         source: getRelativePath(file),
-        format: extension,
-        width: imageSize.width,
-        height: imageSize.height,
+        sourceMode: modeConfig.sourceMode,
+        format: getExportFormatForCurrentMode(extension),
+        width: assetSize.width,
+        height: assetSize.height,
         byteLength: bytes.byteLength,
         base64Length: base64.length,
         lineLength,
@@ -1701,7 +1769,7 @@ ${error.message}`, "error");
         base64
       });
 
-      return { text, bytes, sha256, extension, imageSize };
+      return { text, bytes, sha256, extension, assetSize };
     }
 
     function parseBase64TextContent(content) {
@@ -1821,12 +1889,26 @@ ${error.message}`, "error");
       return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
     }
 
-    function renderFilePreview(file, container) {
+    function renderFilePreview(file, container, modeConfig) {
       if (container.dataset.url) URL.revokeObjectURL(container.dataset.url);
-      if (!file.type.startsWith("image/")) { container.textContent = "Preview unsupported"; return; }
+      if (!modeConfig || modeConfig.previewKind === "none") {
+        container.textContent = modeConfig ? modeConfig.previewDisabledText : "Preview disabled";
+        return;
+      }
       const url = URL.createObjectURL(file);
       container.dataset.url = url;
       container.innerHTML = "";
+      if (modeConfig.previewKind === "video") {
+        const video = document.createElement("video");
+        video.src = url;
+        video.controls = true;
+        video.preload = "metadata";
+        video.muted = true;
+        video.onerror = () => { container.textContent = "Preview unsupported"; };
+        container.appendChild(video);
+        return;
+      }
+      if (!file.type.startsWith("image/")) { container.textContent = "Preview unsupported"; return; }
       const img = document.createElement("img");
       img.src = url;
       img.alt = "Image preview";
@@ -1834,11 +1916,26 @@ ${error.message}`, "error");
       container.appendChild(img);
     }
 
-    function renderBlobPreview(blob, container) {
+    function renderBlobPreview(blob, container, format) {
       if (container.dataset.url) URL.revokeObjectURL(container.dataset.url);
+      const previewKind = getPreviewKindForFormat(format);
+      if (previewKind === "none") {
+        container.textContent = getPreviewDisabledTextForFormat(format);
+        return;
+      }
       const url = URL.createObjectURL(blob);
       container.dataset.url = url;
       container.innerHTML = "";
+      if (previewKind === "video") {
+        const video = document.createElement("video");
+        video.src = url;
+        video.controls = true;
+        video.preload = "metadata";
+        video.muted = true;
+        video.onerror = () => { container.textContent = "Preview unsupported, but download may still be valid"; };
+        container.appendChild(video);
+        return;
+      }
       const img = document.createElement("img");
       img.src = url;
       img.alt = "Restored image preview";
@@ -1874,8 +1971,61 @@ ${error.message}`, "error");
       });
     }
 
-    function buildBasicFileMeta(file) {
-      return [`File: ${file.name}`, `MIME: ${file.type || "unknown"}`, `Bytes: ${file.size}`, `Last Modified: ${file.lastModified ? new Date(file.lastModified).toISOString() : "unknown"}`].join("\n");
+    function getVideoSizeFromFile(file) {
+      return new Promise(resolve => {
+        const url = URL.createObjectURL(file);
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.onloadedmetadata = () => {
+          const size = { width: video.videoWidth || 0, height: video.videoHeight || 0 };
+          URL.revokeObjectURL(url);
+          resolve(size);
+        };
+        video.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve({ width: 0, height: 0 });
+        };
+        video.src = url;
+      });
+    }
+
+    function getVideoSizeFromBlob(blob) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(blob);
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.onloadedmetadata = () => {
+          const size = { width: video.videoWidth || 0, height: video.videoHeight || 0 };
+          URL.revokeObjectURL(url);
+          resolve(size);
+        };
+        video.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error("Video preview loading failed."));
+        };
+        video.src = url;
+      });
+    }
+
+    function getAssetDimensionsFromFile(file, previewKind) {
+      if (previewKind === "image") return getImageSizeFromFile(file);
+      if (previewKind === "video") return getVideoSizeFromFile(file);
+      return Promise.resolve({ width: 0, height: 0 });
+    }
+
+    function getAssetDimensionsFromBlob(blob, previewKind) {
+      if (previewKind === "image") return getImageSizeFromBlob(blob);
+      if (previewKind === "video") return getVideoSizeFromBlob(blob);
+      return Promise.resolve({ width: 0, height: 0 });
+    }
+
+    function buildBasicFileMeta(file, modeConfig) {
+      return [
+        `File: ${file.name}`,
+        `MIME: ${file.type || "unknown"}`,
+        `${getBytesLabelForMode(modeConfig)}: ${file.size}`,
+        `Last Modified: ${file.lastModified ? new Date(file.lastModified).toISOString() : "unknown"}`
+      ].join("\n");
     }
 
     function initializeMode() {
@@ -1883,7 +2033,7 @@ ${error.message}`, "error");
     }
 
     function setCurrentMode(mode, persist = true) {
-      currentMode = mode === "fbx" ? "fbx" : "image";
+      currentMode = Object.prototype.hasOwnProperty.call(MODE_CONFIG, mode) ? mode : "image";
       if (persist) localStorage.setItem(MODE_STORAGE_KEY, currentMode);
       applyModeConfig();
     }
@@ -1895,6 +2045,8 @@ ${error.message}`, "error");
     function applyModeConfig() {
       const config = getCurrentModeConfig();
       document.title = config.title;
+      pageTitle.textContent = config.title;
+      workflowNotice.textContent = config.workflowNotice;
       heroDescription.textContent = config.heroDescription;
       githubSettingsDescription.textContent = config.githubSettingsDescription;
       githubPathLabel.textContent = "File Path";
@@ -1928,11 +2080,12 @@ ${error.message}`, "error");
       batchExportFolder.setAttribute("accept", config.batchExportAccept);
       batchImportFolderLabel.textContent = config.batchImportFolderLabel;
       batchImportFolderHint.textContent = config.batchImportFolderHint;
-      exportPreviewWrap.classList.toggle("hidden", !config.supportsPreview);
-      importPreviewWrap.classList.toggle("hidden", !config.supportsPreview);
-      if (!config.supportsPreview) {
-        exportPreview.textContent = "Preview disabled in FBX mode";
-        importPreview.textContent = "Preview disabled in FBX mode";
+      decodeButton.textContent = config.decodeButtonLabel;
+      exportPreviewWrap.classList.toggle("hidden", config.previewKind === "none");
+      importPreviewWrap.classList.toggle("hidden", config.previewKind === "none");
+      if (config.previewKind === "none") {
+        exportPreview.textContent = config.previewDisabledText;
+        importPreview.textContent = config.previewDisabledText;
       }
       modeButtons.forEach(button => {
         const isActive = button.dataset.modeOption === currentMode;
@@ -1940,14 +2093,26 @@ ${error.message}`, "error");
         button.setAttribute("aria-pressed", String(isActive));
       });
       applyGithubPathFields();
-      if (!exportFileNameInput.value || exportFileNameInput.value === MODE_CONFIG.image.defaultExportTxtName || exportFileNameInput.value === MODE_CONFIG.fbx.defaultExportTxtName) {
+      if (!exportFileNameInput.value || getAllModeDefaultValues("defaultExportTxtName").includes(exportFileNameInput.value)) {
         exportFileNameInput.value = config.defaultExportTxtName;
       }
-      if (!restoredFileNameInput.value || restoredFileNameInput.value === MODE_CONFIG.image.defaultRestoredName || restoredFileNameInput.value === MODE_CONFIG.fbx.defaultRestoredName) {
+      if (!restoredFileNameInput.value || getAllModeDefaultValues("defaultRestoredName").includes(restoredFileNameInput.value)) {
         restoredFileNameInput.value = config.defaultRestoredName;
       }
+      if (!githubCommitMessage.value.trim() || getAllModeDefaultValues("defaultCommitMessage").includes(githubCommitMessage.value.trim())) {
+        githubCommitMessage.value = config.defaultCommitMessage;
+      }
       if (downloadTxtLink.classList.contains("disabled")) downloadTxtLink.download = config.defaultExportTxtName;
-      if (downloadImageLink.classList.contains("disabled")) downloadImageLink.download = config.defaultRestoredName;
+      if (downloadImageLink.classList.contains("disabled")) {
+        downloadImageLink.download = config.defaultRestoredName;
+        downloadImageLink.textContent = config.downloadRestoredLabel;
+      }
+      if (!exportMeta.textContent || getAllModeDefaultValues("emptyExportMeta").includes(exportMeta.textContent)) {
+        exportMeta.textContent = config.emptyExportMeta;
+      }
+      if (!importMeta.textContent || getAllModeDefaultValues("emptyImportMeta").includes(importMeta.textContent)) {
+        importMeta.textContent = config.emptyImportMeta;
+      }
     }
 
     function applyGithubPathFields(parsedSettings) {
@@ -1961,7 +2126,8 @@ ${error.message}`, "error");
       const raw = parsedSettings || safelyReadGithubSettings();
       const defaults = {
         image: { path: MODE_CONFIG.image.defaultGithubPath, batchPath: MODE_CONFIG.image.defaultGithubBatchPath },
-        fbx: { path: MODE_CONFIG.fbx.defaultGithubPath, batchPath: MODE_CONFIG.fbx.defaultGithubBatchPath }
+        fbx: { path: MODE_CONFIG.fbx.defaultGithubPath, batchPath: MODE_CONFIG.fbx.defaultGithubBatchPath },
+        video: { path: MODE_CONFIG.video.defaultGithubPath, batchPath: MODE_CONFIG.video.defaultGithubBatchPath }
       };
       if (!raw) return defaults;
       if (raw.paths) {
@@ -1973,6 +2139,10 @@ ${error.message}`, "error");
           fbx: {
             path: raw.paths.fbx && raw.paths.fbx.path ? raw.paths.fbx.path : defaults.fbx.path,
             batchPath: raw.paths.fbx && raw.paths.fbx.batchPath ? raw.paths.fbx.batchPath : defaults.fbx.batchPath
+          },
+          video: {
+            path: raw.paths.video && raw.paths.video.path ? raw.paths.video.path : defaults.video.path,
+            batchPath: raw.paths.video && raw.paths.video.batchPath ? raw.paths.video.batchPath : defaults.video.batchPath
           }
         };
       }
@@ -1981,8 +2151,13 @@ ${error.message}`, "error");
           path: raw.path || defaults.image.path,
           batchPath: raw.batchPath || defaults.image.batchPath
         },
-        fbx: defaults.fbx
+        fbx: defaults.fbx,
+        video: defaults.video
       };
+    }
+
+    function getAllModeDefaultValues(key) {
+      return Object.values(MODE_CONFIG).map(config => config[key]).filter(Boolean);
     }
 
     function safelyReadGithubSettings() {
@@ -2131,9 +2306,10 @@ ${error.message}`, "error");
     }
 
     function clearExport() {
+      const config = getCurrentModeConfig();
       exportFile.value = "";
       exportPreview.innerHTML = "No preview";
-      exportMeta.textContent = "No image loaded.";
+      exportMeta.textContent = config.emptyExportMeta;
       exportTextOutput.value = "";
       downloadTxtLink.classList.add("disabled");
       downloadTxtLink.href = "#";
@@ -2143,13 +2319,15 @@ ${error.message}`, "error");
     }
 
     function clearImport() {
+      const config = getCurrentModeConfig();
       importTxtFile.value = "";
       importTextInput.value = "";
       importPreview.innerHTML = "No preview";
-      importMeta.textContent = "No image decoded.";
+      importMeta.textContent = config.emptyImportMeta;
       lastImportMetadata = "";
       downloadImageLink.classList.add("disabled");
       downloadImageLink.href = "#";
+      downloadImageLink.textContent = config.downloadRestoredLabel;
       copyImportedMetaButton.disabled = true;
       if (importImageObjectUrl) { URL.revokeObjectURL(importImageObjectUrl); importImageObjectUrl = null; }
       setStatus(importStatus, "Cleared.", "");
@@ -2212,7 +2390,58 @@ ${error.message}`, "error");
       return cleaned || fallback;
     }
 
+    function getCurrentModeLabel() {
+      return currentMode === "video" ? "video" : currentMode === "fbx" ? "FBX" : "image";
+    }
+
+    function getExportFormatForCurrentMode(extension) {
+      if (currentMode === "fbx") return "FBX";
+      return currentMode === "video" ? normalizeVideoFormat(extension) : extension;
+    }
+
+    function getBytesLabelForMode(modeConfig) {
+      if (!modeConfig) return "Bytes";
+      if (modeConfig === MODE_CONFIG.video || modeConfig.title === MODE_CONFIG.video.title) return "Video Bytes";
+      if (modeConfig === MODE_CONFIG.fbx || modeConfig.title === MODE_CONFIG.fbx.title) return "File Bytes";
+      return "Image Bytes";
+    }
+
+    function getModeBytesLabel() {
+      return getBytesLabelForMode(getCurrentModeConfig());
+    }
+
+    function getBytesLabelForFormat(format) {
+      if (isVideoFormat(format)) return "Video Bytes";
+      if (isFbxFormat(format)) return "File Bytes";
+      return "Image Bytes";
+    }
+
+    function getPreviewKindForFormat(format) {
+      if (isVideoFormat(format)) return "video";
+      if (isFbxFormat(format)) return "none";
+      return "image";
+    }
+
+    function getPreviewDisabledTextForFormat(format) {
+      if (isFbxFormat(format)) return MODE_CONFIG.fbx.previewDisabledText;
+      if (isVideoFormat(format)) return MODE_CONFIG.video.previewDisabledText;
+      return MODE_CONFIG.image.previewDisabledText;
+    }
+
+    function getDownloadLabelForFormat(format) {
+      if (isVideoFormat(format)) return MODE_CONFIG.video.downloadRestoredLabel;
+      if (isFbxFormat(format)) return MODE_CONFIG.fbx.downloadRestoredLabel;
+      return MODE_CONFIG.image.downloadRestoredLabel;
+    }
+
+    function getImportSuccessTextForFormat(format) {
+      if (isVideoFormat(format)) return MODE_CONFIG.video.importSuccessText;
+      if (isFbxFormat(format)) return MODE_CONFIG.fbx.importSuccessText;
+      return MODE_CONFIG.image.importSuccessText;
+    }
+
     function suggestedRestoredName(format) {
+      if (isVideoFormat(format)) return `VideoBase64_Restored.${normalizeOutputExtension(format) || "mp4"}`;
       if (isFbxFormat(format)) return MODE_CONFIG.fbx.defaultRestoredName;
       const ext = (format || "png").toLowerCase();
       const normalized = ext === "jpeg" ? "jpg" : ext;
@@ -2222,6 +2451,14 @@ ${error.message}`, "error");
     function getMimeTypeFromFormat(format, bytes) {
       const upper = (format || "").toUpperCase();
       switch (upper) {
+        case "MP4":
+        case "M4V": return "video/mp4";
+        case "MOV": return "video/quicktime";
+        case "WEBM": return "video/webm";
+        case "AVI": return "video/x-msvideo";
+        case "MKV": return "video/x-matroska";
+        case "OGV":
+        case "OGG": return "video/ogg";
         case "PNG": return "image/png";
         case "JPG":
         case "JPEG": return "image/jpeg";
@@ -2238,10 +2475,28 @@ ${error.message}`, "error");
       return (format || "").toUpperCase() === "FBX";
     }
 
+    function isVideoFormat(format) {
+      return ["MP4", "M4V", "MOV", "WEBM", "AVI", "MKV", "OGV", "OGG"].includes((format || "").toUpperCase());
+    }
+
+    function normalizeVideoFormat(format) {
+      const upper = (format || "").toUpperCase();
+      if (upper === "OGG") return "OGV";
+      return upper;
+    }
+
     function normalizeOutputExtension(format, bytes) {
       const upper = (format || "").toUpperCase();
       switch (upper) {
         case "FBX": return "fbx";
+        case "MP4": return "mp4";
+        case "M4V": return "m4v";
+        case "MOV": return "mov";
+        case "WEBM": return "webm";
+        case "AVI": return "avi";
+        case "MKV": return "mkv";
+        case "OGV":
+        case "OGG": return "ogv";
         case "PNG": return "png";
         case "JPG":
         case "JPEG": return "jpg";
@@ -2253,6 +2508,12 @@ ${error.message}`, "error");
         default: {
           const mimeType = getMimeTypeFromFormat(format, bytes);
           switch (mimeType) {
+            case "video/mp4": return "mp4";
+            case "video/quicktime": return "mov";
+            case "video/webm": return "webm";
+            case "video/x-msvideo": return "avi";
+            case "video/x-matroska": return "mkv";
+            case "video/ogg": return "ogv";
             case "image/png": return "png";
             case "image/jpeg": return "jpg";
             case "image/webp": return "webp";
@@ -2267,6 +2528,18 @@ ${error.message}`, "error");
 
     function getMimeTypeFromBytes(bytes) {
       if (!bytes || bytes.length < 12) return "";
+      if (bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
+        const brand = String.fromCharCode(bytes[8] || 0, bytes[9] || 0, bytes[10] || 0, bytes[11] || 0);
+        if (brand === "qt  ") return "video/quicktime";
+        return "video/mp4";
+      }
+      if (bytes[0] === 0x1A && bytes[1] === 0x45 && bytes[2] === 0xDF && bytes[3] === 0xA3) {
+        const headerText = Array.from(bytes.slice(0, Math.min(bytes.length, 64))).map(byte => String.fromCharCode(byte)).join("").toLowerCase();
+        if (headerText.includes("webm")) return "video/webm";
+        return "video/x-matroska";
+      }
+      if (bytes[0] === 0x4F && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) return "video/ogg";
+      if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x41 && bytes[9] === 0x56 && bytes[10] === 0x49) return "video/x-msvideo";
       if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return "image/png";
       if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return "image/jpeg";
       if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return "image/gif";
@@ -2283,6 +2556,12 @@ ${error.message}`, "error");
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
         const mime = getMimeTypeFromBytes(bytes);
         switch (mime) {
+          case "video/mp4": return "MP4";
+          case "video/quicktime": return "MOV";
+          case "video/webm": return "WEBM";
+          case "video/x-msvideo": return "AVI";
+          case "video/x-matroska": return "MKV";
+          case "video/ogg": return "OGV";
           case "image/png": return "PNG";
           case "image/jpeg": return "JPG";
           case "image/gif": return "GIF";
