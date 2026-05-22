@@ -577,11 +577,20 @@
         </div>
       </div>
 
+      <div class="row">
+        <div>
+          <label for="batchGithubSubfolderPath">Batch GitHub Subfolder<span class="hint">只清除 `Batch Base Path` 底下指定子資料夾，例如 `C/Character`。留空表示不指定子資料夾。</span></label>
+          <input id="batchGithubSubfolderPath" type="text" placeholder="C/Character" autocomplete="off" />
+        </div>
+        <div></div>
+      </div>
+
       <div class="button-row">
         <button id="batchExportButton">Batch Export Folder</button>
         <button id="batchImportButton">Batch Import Folder</button>
         <button id="batchExportToGithubButton">Batch Export to GitHub</button>
         <button id="batchImportFromGithubButton">Batch Import from GitHub</button>
+        <button id="clearBatchGithubSubfolderButton" class="danger">Clear Batch GitHub Subfolder</button>
         <button id="clearBatchGithubButton" class="danger">Clear Batch GitHub Folder</button>
         <button id="clearBatchButton" class="secondary">Clear Batch Log</button>
       </div>
@@ -669,10 +678,12 @@ BASE64_END</div>
     const importStatus = document.getElementById("importStatus");
     const batchExportFolder = document.getElementById("batchExportFolder");
     const batchImportFolder = document.getElementById("batchImportFolder");
+    const batchGithubSubfolderPath = document.getElementById("batchGithubSubfolderPath");
     const batchExportButton = document.getElementById("batchExportButton");
     const batchImportButton = document.getElementById("batchImportButton");
     const batchExportToGithubButton = document.getElementById("batchExportToGithubButton");
     const batchImportFromGithubButton = document.getElementById("batchImportFromGithubButton");
+    const clearBatchGithubSubfolderButton = document.getElementById("clearBatchGithubSubfolderButton");
     const clearBatchGithubButton = document.getElementById("clearBatchGithubButton");
     const clearBatchButton = document.getElementById("clearBatchButton");
     const batchStatus = document.getElementById("batchStatus");
@@ -715,6 +726,7 @@ BASE64_END</div>
     batchImportButton.addEventListener("click", batchImportTextsToImages);
     batchExportToGithubButton.addEventListener("click", batchExportFolderToGithub);
     batchImportFromGithubButton.addEventListener("click", batchImportFromGithubToImages);
+    clearBatchGithubSubfolderButton.addEventListener("click", clearBatchGithubSubfolder);
     clearBatchGithubButton.addEventListener("click", clearBatchGithubFolder);
     clearExportButton.addEventListener("click", clearExport);
     clearImportButton.addEventListener("click", clearImport);
@@ -1080,6 +1092,44 @@ BASE64_END</div>
         setStatus(batchStatus, `Batch GitHub clear succeeded.\nDeleted: ${deletedCount}\nBase Path: ${basePath}\nBranch: ${branch}`, "success");
       } catch (error) {
         setStatus(batchStatus, `Batch GitHub clear failed:\n${error.message}`, "error");
+      }
+    }
+
+    async function clearBatchGithubSubfolder() {
+      clearBatchLog();
+      appendBatchLog("Batch GitHub subfolder clear start.");
+
+      try {
+        const settings = getGithubSettings();
+        const basePath = getGithubBatchBasePath(settings);
+        const subfolder = getBatchGithubSubfolderPath();
+        if (!subfolder) throw new Error("Batch GitHub Subfolder is required.");
+
+        const targetBasePath = joinGithubPath(basePath, subfolder);
+        const branch = await resolveGithubBranch(settings);
+        const txtPaths = await githubListBatchTextPaths(settings, branch, targetBasePath, false);
+
+        if (!txtPaths.length) {
+          setStatus(batchStatus, `Batch GitHub subfolder clear finished.\nNo .txt files found under ${targetBasePath}.`, "success");
+          appendBatchLog(`No .txt files found under ${targetBasePath}.`);
+          return;
+        }
+
+        let deletedCount = 0;
+        for (const txtPath of txtPaths) {
+          const fileData = await githubFetchContentByPath(settings, branch, txtPath, false);
+          if (!fileData || fileData.type !== "file" || !fileData.sha) {
+            throw new Error(`Unable to resolve SHA for GitHub file: ${txtPath}`);
+          }
+
+          await githubDeleteFile(settings, branch, txtPath, fileData.sha, `${settings.commitMessage} [batch clear subfolder] ${txtPath}`);
+          appendBatchLog(`OK  GITHUB DELETE  ${txtPath}`);
+          deletedCount += 1;
+        }
+
+        setStatus(batchStatus, `Batch GitHub subfolder clear succeeded.\nDeleted: ${deletedCount}\nBase Path: ${targetBasePath}\nBranch: ${branch}`, "success");
+      } catch (error) {
+        setStatus(batchStatus, `Batch GitHub subfolder clear failed:\n${error.message}`, "error");
       }
     }
 
@@ -1687,6 +1737,10 @@ ${error.message}`, "error");
     function getGithubBatchBasePath(settings) {
       if (!settings.batchPath) throw new Error("GitHub Batch Base Path is required.");
       return settings.batchPath.replace(/^\/+|\/+$/g, "");
+    }
+
+    function getBatchGithubSubfolderPath() {
+      return batchGithubSubfolderPath.value.trim().replace(/^\/+|\/+$/g, "");
     }
 
     function initializeTheme() {
