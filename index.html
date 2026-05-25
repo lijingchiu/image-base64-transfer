@@ -310,7 +310,7 @@
       }
     }
 
-    .theme-switcher {
+    .control-card {
       display: inline-grid;
       gap: 8px;
       padding: 10px 12px 12px;
@@ -321,7 +321,7 @@
       min-width: 220px;
     }
 
-    .theme-switcher-label {
+    .control-label {
       color: var(--muted);
       font-size: 11px;
       font-weight: 700;
@@ -330,13 +330,13 @@
       padding: 0 2px;
     }
 
-    .theme-field {
+    .control-field {
       position: relative;
       display: flex;
       align-items: center;
     }
 
-    .theme-field::after {
+    .control-field::after {
       content: "";
       position: absolute;
       right: 16px;
@@ -349,7 +349,7 @@
       pointer-events: none;
     }
 
-    .theme-select {
+    .control-select {
       width: 100%;
       min-width: 0;
       min-height: 46px;
@@ -368,14 +368,14 @@
         0 8px 18px rgba(15, 23, 42, 0.06);
     }
 
-    .theme-select:hover {
+    .control-select:hover {
       border-color: rgba(37, 99, 235, 0.35);
       box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.92),
         0 10px 22px rgba(37, 99, 235, 0.10);
     }
 
-    :root[data-theme="dark"] .theme-select {
+    :root[data-theme="dark"] .control-select {
       background:
         linear-gradient(180deg, rgba(31, 41, 55, 0.96), rgba(20, 28, 40, 0.94));
       border-color: rgba(96, 165, 250, 0.24);
@@ -384,86 +384,14 @@
         0 10px 24px rgba(0, 0, 0, 0.28);
     }
 
-    :root[data-theme="dark"] .theme-select:hover {
+    :root[data-theme="dark"] .control-select:hover {
       border-color: rgba(96, 165, 250, 0.42);
     }
 
-    .mode-switcher {
-      display: inline-grid;
-      gap: 8px;
-      padding: 10px 12px 12px;
-      border: 1px solid var(--line);
-      border-radius: 24px;
-      background: var(--panel);
-      box-shadow: var(--shadow);
-      min-width: 220px;
-    }
-
-    .mode-switcher-label {
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      padding: 0 2px;
-    }
-
-    .mode-field {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-
-    .mode-field::after {
-      content: "";
-      position: absolute;
-      right: 16px;
-      width: 10px;
-      height: 10px;
-      border-right: 2px solid currentColor;
-      border-bottom: 2px solid currentColor;
-      transform: translateY(-2px) rotate(45deg);
-      color: var(--muted);
-      pointer-events: none;
-    }
-
-    .mode-select {
-      width: 100%;
-      min-width: 0;
-      min-height: 46px;
-      border-radius: 999px;
-      padding: 10px 42px 10px 16px;
-      appearance: none;
-      -webkit-appearance: none;
-      -moz-appearance: none;
-      border: 1px solid rgba(37, 99, 235, 0.2);
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.96), rgba(243,246,252,0.92));
-      font-weight: 650;
-      color: var(--text);
+    .control-card.control-card-accent {
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.85),
-        0 8px 18px rgba(15, 23, 42, 0.06);
-    }
-
-    .mode-select:hover {
-      border-color: rgba(37, 99, 235, 0.35);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.92),
-        0 10px 22px rgba(37, 99, 235, 0.10);
-    }
-
-    :root[data-theme="dark"] .mode-select {
-      background:
-        linear-gradient(180deg, rgba(31, 41, 55, 0.96), rgba(20, 28, 40, 0.94));
-      border-color: rgba(96, 165, 250, 0.24);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.04),
-        0 10px 24px rgba(0, 0, 0, 0.28);
-    }
-
-    :root[data-theme="dark"] .mode-select:hover {
-      border-color: rgba(96, 165, 250, 0.42);
+        var(--shadow),
+        0 0 0 1px rgba(37, 99, 235, 0.07);
     }
 
     .batch-list {
@@ -490,10 +418,10 @@
       </div>
 
       <div class="topbar-controls">
-        <div class="mode-switcher" aria-label="Mode Switcher">
-          <label class="mode-switcher-label" for="modeSelect">Mode</label>
-          <div class="mode-field">
-            <select id="modeSelect" class="mode-select" aria-label="Mode Select">
+        <div class="control-card control-card-accent" aria-label="Mode Switcher">
+          <label class="control-label" for="modeSelect">Mode</label>
+          <div class="control-field">
+            <select id="modeSelect" class="control-select" aria-label="Mode Select">
               <option value="image">Image</option>
               <option value="fbx">FBX</option>
               <option value="video">Video</option>
@@ -503,10 +431,10 @@
           </div>
         </div>
 
-        <div class="theme-switcher" aria-label="Theme Switcher">
-          <label class="theme-switcher-label" for="themeSelect">Theme</label>
-          <div class="theme-field">
-            <select id="themeSelect" class="theme-select" aria-label="Theme Select">
+        <div class="control-card" aria-label="Theme Switcher">
+          <label class="control-label" for="themeSelect">Theme</label>
+          <div class="control-field">
+            <select id="themeSelect" class="control-select" aria-label="Theme Select">
               <option value="light">白天</option>
               <option value="dark">黑暗</option>
               <option value="system">跟隨系統</option>
