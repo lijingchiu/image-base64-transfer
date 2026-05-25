@@ -311,51 +311,81 @@
     }
 
     .theme-switcher {
-      display: inline-flex;
-      align-items: center;
+      display: inline-grid;
       gap: 8px;
-      padding: 8px;
+      padding: 10px 12px 12px;
       border: 1px solid var(--line);
-      border-radius: 999px;
+      border-radius: 24px;
       background: var(--panel);
       box-shadow: var(--shadow);
-      flex-wrap: wrap;
+      min-width: 220px;
     }
 
     .theme-switcher-label {
       color: var(--muted);
-      font-size: 12px;
-      padding: 0 4px 0 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0 2px;
     }
 
-    .theme-button {
-      min-height: 38px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: transparent;
-      color: var(--text);
-      border: 1px solid transparent;
-    }
-
-    .theme-button:hover {
-      background: var(--soft-bg);
-      color: var(--text);
-    }
-
-    .theme-button.active {
-      background: var(--accent);
-      color: #ffffff;
-    }
-
-    .theme-icon {
-      display: inline-flex;
+    .theme-field {
+      position: relative;
+      display: flex;
       align-items: center;
-      justify-content: center;
-      width: 18px;
-      height: 18px;
-      margin-right: 6px;
-      font-size: 16px;
-      line-height: 1;
+    }
+
+    .theme-field::after {
+      content: "";
+      position: absolute;
+      right: 16px;
+      width: 10px;
+      height: 10px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: translateY(-2px) rotate(45deg);
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .theme-select {
+      width: 100%;
+      min-width: 0;
+      min-height: 46px;
+      border-radius: 999px;
+      padding: 10px 42px 10px 16px;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      border: 1px solid rgba(37, 99, 235, 0.2);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.96), rgba(243,246,252,0.92));
+      font-weight: 650;
+      color: var(--text);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.85),
+        0 8px 18px rgba(15, 23, 42, 0.06);
+    }
+
+    .theme-select:hover {
+      border-color: rgba(37, 99, 235, 0.35);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.92),
+        0 10px 22px rgba(37, 99, 235, 0.10);
+    }
+
+    :root[data-theme="dark"] .theme-select {
+      background:
+        linear-gradient(180deg, rgba(31, 41, 55, 0.96), rgba(20, 28, 40, 0.94));
+      border-color: rgba(96, 165, 250, 0.24);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.04),
+        0 10px 24px rgba(0, 0, 0, 0.28);
+    }
+
+    :root[data-theme="dark"] .theme-select:hover {
+      border-color: rgba(96, 165, 250, 0.42);
     }
 
     .mode-switcher {
@@ -474,16 +504,14 @@
         </div>
 
         <div class="theme-switcher" aria-label="Theme Switcher">
-          <span class="theme-switcher-label">Theme</span>
-          <button id="themeLightButton" class="theme-button secondary" type="button" data-theme-option="light" aria-pressed="false">
-            <span class="theme-icon" aria-hidden="true">☀️</span>白天
-          </button>
-          <button id="themeDarkButton" class="theme-button secondary" type="button" data-theme-option="dark" aria-pressed="false">
-            <span class="theme-icon" aria-hidden="true">🌙</span>黑暗
-          </button>
-          <button id="themeSystemButton" class="theme-button secondary" type="button" data-theme-option="system" aria-pressed="false">
-            <span class="theme-icon" aria-hidden="true">🖥️</span>跟隨系統
-          </button>
+          <label class="theme-switcher-label" for="themeSelect">Theme</label>
+          <div class="theme-field">
+            <select id="themeSelect" class="theme-select" aria-label="Theme Select">
+              <option value="light">白天</option>
+              <option value="dark">黑暗</option>
+              <option value="system">跟隨系統</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>
@@ -1044,9 +1072,7 @@ BASE64_END</div>
     const pageTitle = document.getElementById("pageTitle");
     const workflowNotice = document.getElementById("workflowNotice");
     const modeSelect = document.getElementById("modeSelect");
-    const themeLightButton = document.getElementById("themeLightButton");
-    const themeDarkButton = document.getElementById("themeDarkButton");
-    const themeSystemButton = document.getElementById("themeSystemButton");
+    const themeSelect = document.getElementById("themeSelect");
     const heroDescription = document.getElementById("heroDescription");
     const githubSettingsDescription = document.getElementById("githubSettingsDescription");
     const githubPathLabel = document.getElementById("githubPathLabel");
@@ -1079,7 +1105,6 @@ BASE64_END</div>
     const batchExportFolderHint = document.getElementById("batchExportFolderHint");
     const batchImportFolderLabel = document.getElementById("batchImportFolderLabel");
     const batchImportFolderHint = document.getElementById("batchImportFolderHint");
-    const themeButtons = [themeLightButton, themeDarkButton, themeSystemButton];
 
     let exportTxtObjectUrl = null;
     let importImageObjectUrl = null;
@@ -1095,9 +1120,7 @@ BASE64_END</div>
     saveGithubSettingsButton.addEventListener("click", () => saveGithubSettingsToStorage(true));
     loadGithubSettingsButton.addEventListener("click", () => loadGithubSettingsFromStorage(true));
     clearGithubSettingsButton.addEventListener("click", clearGithubSettingsFromStorage);
-    themeButtons.forEach(button => {
-      button.addEventListener("click", () => setThemePreference(button.dataset.themeOption));
-    });
+    themeSelect.addEventListener("change", () => setThemePreference(themeSelect.value));
     modeSelect.addEventListener("change", () => setCurrentMode(modeSelect.value));
     systemThemeMedia.addEventListener("change", () => {
       if (getStoredThemePreference() === "system") applyTheme("system");
@@ -2440,11 +2463,7 @@ ${error.message}`, "error");
         : preference;
 
       document.documentElement.dataset.theme = resolvedTheme;
-      themeButtons.forEach(button => {
-        const isActive = button.dataset.themeOption === preference;
-        button.classList.toggle("active", isActive);
-        button.setAttribute("aria-pressed", String(isActive));
-      });
+      themeSelect.value = preference;
     }
 
     function setDownloadLink(link, content, mimeType, fileName, label) {
