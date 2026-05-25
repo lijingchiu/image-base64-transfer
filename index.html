@@ -412,6 +412,7 @@
           <button id="modeImageButton" class="mode-button secondary" type="button" data-mode-option="image" aria-pressed="false">Image</button>
           <button id="modeFbxButton" class="mode-button secondary" type="button" data-mode-option="fbx" aria-pressed="false">FBX</button>
           <button id="modeVideoButton" class="mode-button secondary" type="button" data-mode-option="video" aria-pressed="false">Video</button>
+          <button id="modeMaxButton" class="mode-button secondary" type="button" data-mode-option="max" aria-pressed="false">MAX</button>
         </div>
 
         <div class="theme-switcher" aria-label="Theme Switcher">
@@ -824,6 +825,55 @@ BASE64_END</div>
         downloadRestoredLabel: "Download Video",
         decodeButtonLabel: "Import Base64 Text To Video",
         sourceMode: "RawVideoFileEncode"
+      },
+      max: {
+        title: "3ds Max Base64 Transfer",
+        workflowNotice: "建議流程：.max → 匯出 Base64 txt → Export to GitHub → 另一端 Import from GitHub → 還原 .max。MAX 模式只保證原始 bytes 一致，不解析 3ds Max 內容。",
+        heroDescription: "純前端工具。3ds Max `.max` 檔與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。MAX 模式只保證原始 bytes round-trip，不處理貼圖或相依資源。",
+        githubSettingsDescription: "指定要讀寫的 Repo 與檔案路徑。MAX 模式與 Image / FBX / Video 模式各自使用獨立的 File Path / Batch Base Path，避免混用。",
+        githubPathHint: "Repo 內的 MAX txt 檔路徑，例如 transfers/MaxBase64_Export.txt。",
+        githubBatchPathHint: "MAX 批量模式用的 repo 資料夾路徑，例如 max-batch-transfers。上傳時會在此路徑下保留子資料夾結構。",
+        defaultGithubPath: "MaxBase64_Export.txt",
+        defaultGithubBatchPath: "max-batch-transfers",
+        defaultCommitMessage: "Update max base64 transfer text",
+        exportSectionTitle: "Export：MAX → Base64 文字",
+        exportSectionDescription: "選擇 `.max` 檔後，工具會直接讀取原始檔案 bytes 並轉成 Base64。這是檔案級轉換，目標是 round-trip 後 SHA256 與 BYTE_LENGTH 完全一致。",
+        exportFileLabel: "Source MAX File",
+        exportFileHint: "選擇要轉成文字的 `.max`。MAX 模式不做預覽，也不解析場景內容。",
+        exportAccept: ".max,application/octet-stream",
+        exportFileNameLabel: "Output Txt File Name",
+        exportFileNameHint: "下載 txt 時使用的檔名。",
+        defaultExportTxtName: "MaxBase64_Export.txt",
+        exportMetadataTitle: "Export Metadata",
+        exportTextOutputLabel: "Generated Txt Content",
+        exportTextOutputHint: "這裡會產生完整 txt 內容，包含 metadata、SHA256、BASE64_BEGIN / BASE64_END。",
+        importSectionTitle: "Import：Base64 文字 → MAX",
+        importSectionDescription: "可匯入 txt 檔、直接貼上整份 txt 內容，或從 GitHub 指定檔案讀取，再還原成 `.max`。",
+        importTxtFileLabel: "MAX Base64 Txt File",
+        importTxtFileHint: "選擇由本工具輸出的 MAX txt，也可選擇只包含純 Base64 的 txt。",
+        importTextInputLabel: "Full Txt Content",
+        importTextInputHint: "直接貼上完整 txt 內容。可以包含 metadata，也可以只貼純 Base64。",
+        importTextPlaceholder: "Paste full exported MAX txt content or plain Base64 here...",
+        restoredFileNameLabel: "Restored MAX File Name",
+        restoredFileNameHint: "下載還原 MAX 時使用的檔名。副檔名應為 `.max`。",
+        defaultRestoredName: "MaxBase64_Restored.max",
+        importMetadataTitle: "Import Metadata",
+        batchSectionTitle: "Batch：MAX 資料夾批量匯出 / 匯入",
+        batchSectionDescription: "可一次選整個資料夾處理多個 `.max`。MAX 模式不做預覽，只保證原始 bytes round-trip；適合在 3ds Max 流程中做檔案同步。",
+        batchExportFolderLabel: "Source MAX Folder",
+        batchExportFolderHint: "選擇包含 `.max` 檔案的資料夾。子資料夾也會一起掃描。",
+        batchExportAccept: ".max",
+        batchImportFolderLabel: "Source MAX Txt Folder",
+        batchImportFolderHint: "選擇包含 MAX `.txt` 的資料夾。子資料夾也會一起掃描。",
+        batchExtensions: [".max"],
+        previewKind: "none",
+        previewDisabledText: "Preview disabled in MAX mode",
+        emptyExportMeta: "No MAX file loaded.",
+        emptyImportMeta: "No MAX file decoded.",
+        importSuccessText: "Import succeeded. You can now download the restored MAX file.",
+        downloadRestoredLabel: "Download MAX",
+        decodeButtonLabel: "Import Base64 Text To MAX",
+        sourceMode: "RawMaxFileEncode"
       }
     };
 
@@ -892,6 +942,7 @@ BASE64_END</div>
     const modeImageButton = document.getElementById("modeImageButton");
     const modeFbxButton = document.getElementById("modeFbxButton");
     const modeVideoButton = document.getElementById("modeVideoButton");
+    const modeMaxButton = document.getElementById("modeMaxButton");
     const heroDescription = document.getElementById("heroDescription");
     const githubSettingsDescription = document.getElementById("githubSettingsDescription");
     const githubPathLabel = document.getElementById("githubPathLabel");
@@ -925,7 +976,7 @@ BASE64_END</div>
     const batchImportFolderLabel = document.getElementById("batchImportFolderLabel");
     const batchImportFolderHint = document.getElementById("batchImportFolderHint");
     const themeButtons = [themeLightButton, themeDarkButton, themeSystemButton];
-    const modeButtons = [modeImageButton, modeFbxButton, modeVideoButton];
+    const modeButtons = [modeImageButton, modeFbxButton, modeVideoButton, modeMaxButton];
 
     let exportTxtObjectUrl = null;
     let importImageObjectUrl = null;
@@ -1397,6 +1448,10 @@ BASE64_END</div>
             video: {
               path: currentMode === "video" ? githubPath.value.trim() : existingPaths.video.path,
               batchPath: currentMode === "video" ? githubBatchPath.value.trim() : existingPaths.video.batchPath
+            },
+            max: {
+              path: currentMode === "max" ? githubPath.value.trim() : existingPaths.max.path,
+              batchPath: currentMode === "max" ? githubBatchPath.value.trim() : existingPaths.max.batchPath
             }
           },
           commitMessage: githubCommitMessage.value.trim(),
@@ -2127,7 +2182,8 @@ ${error.message}`, "error");
       const defaults = {
         image: { path: MODE_CONFIG.image.defaultGithubPath, batchPath: MODE_CONFIG.image.defaultGithubBatchPath },
         fbx: { path: MODE_CONFIG.fbx.defaultGithubPath, batchPath: MODE_CONFIG.fbx.defaultGithubBatchPath },
-        video: { path: MODE_CONFIG.video.defaultGithubPath, batchPath: MODE_CONFIG.video.defaultGithubBatchPath }
+        video: { path: MODE_CONFIG.video.defaultGithubPath, batchPath: MODE_CONFIG.video.defaultGithubBatchPath },
+        max: { path: MODE_CONFIG.max.defaultGithubPath, batchPath: MODE_CONFIG.max.defaultGithubBatchPath }
       };
       if (!raw) return defaults;
       if (raw.paths) {
@@ -2143,6 +2199,10 @@ ${error.message}`, "error");
           video: {
             path: raw.paths.video && raw.paths.video.path ? raw.paths.video.path : defaults.video.path,
             batchPath: raw.paths.video && raw.paths.video.batchPath ? raw.paths.video.batchPath : defaults.video.batchPath
+          },
+          max: {
+            path: raw.paths.max && raw.paths.max.path ? raw.paths.max.path : defaults.max.path,
+            batchPath: raw.paths.max && raw.paths.max.batchPath ? raw.paths.max.batchPath : defaults.max.batchPath
           }
         };
       }
@@ -2152,7 +2212,8 @@ ${error.message}`, "error");
           batchPath: raw.batchPath || defaults.image.batchPath
         },
         fbx: defaults.fbx,
-        video: defaults.video
+        video: defaults.video,
+        max: defaults.max
       };
     }
 
@@ -2391,17 +2452,19 @@ ${error.message}`, "error");
     }
 
     function getCurrentModeLabel() {
-      return currentMode === "video" ? "video" : currentMode === "fbx" ? "FBX" : "image";
+      return currentMode === "video" ? "video" : currentMode === "fbx" ? "FBX" : currentMode === "max" ? "MAX" : "image";
     }
 
     function getExportFormatForCurrentMode(extension) {
       if (currentMode === "fbx") return "FBX";
+      if (currentMode === "max") return "MAX";
       return currentMode === "video" ? normalizeVideoFormat(extension) : extension;
     }
 
     function getBytesLabelForMode(modeConfig) {
       if (!modeConfig) return "Bytes";
       if (modeConfig === MODE_CONFIG.video || modeConfig.title === MODE_CONFIG.video.title) return "Video Bytes";
+      if (modeConfig === MODE_CONFIG.max || modeConfig.title === MODE_CONFIG.max.title) return "File Bytes";
       if (modeConfig === MODE_CONFIG.fbx || modeConfig.title === MODE_CONFIG.fbx.title) return "File Bytes";
       return "Image Bytes";
     }
@@ -2412,35 +2475,41 @@ ${error.message}`, "error");
 
     function getBytesLabelForFormat(format) {
       if (isVideoFormat(format)) return "Video Bytes";
+      if (isMaxFormat(format)) return "File Bytes";
       if (isFbxFormat(format)) return "File Bytes";
       return "Image Bytes";
     }
 
     function getPreviewKindForFormat(format) {
       if (isVideoFormat(format)) return "video";
+      if (isMaxFormat(format)) return "none";
       if (isFbxFormat(format)) return "none";
       return "image";
     }
 
     function getPreviewDisabledTextForFormat(format) {
+      if (isMaxFormat(format)) return MODE_CONFIG.max.previewDisabledText;
       if (isFbxFormat(format)) return MODE_CONFIG.fbx.previewDisabledText;
       if (isVideoFormat(format)) return MODE_CONFIG.video.previewDisabledText;
       return MODE_CONFIG.image.previewDisabledText;
     }
 
     function getDownloadLabelForFormat(format) {
+      if (isMaxFormat(format)) return MODE_CONFIG.max.downloadRestoredLabel;
       if (isVideoFormat(format)) return MODE_CONFIG.video.downloadRestoredLabel;
       if (isFbxFormat(format)) return MODE_CONFIG.fbx.downloadRestoredLabel;
       return MODE_CONFIG.image.downloadRestoredLabel;
     }
 
     function getImportSuccessTextForFormat(format) {
+      if (isMaxFormat(format)) return MODE_CONFIG.max.importSuccessText;
       if (isVideoFormat(format)) return MODE_CONFIG.video.importSuccessText;
       if (isFbxFormat(format)) return MODE_CONFIG.fbx.importSuccessText;
       return MODE_CONFIG.image.importSuccessText;
     }
 
     function suggestedRestoredName(format) {
+      if (isMaxFormat(format)) return MODE_CONFIG.max.defaultRestoredName;
       if (isVideoFormat(format)) return `VideoBase64_Restored.${normalizeOutputExtension(format) || "mp4"}`;
       if (isFbxFormat(format)) return MODE_CONFIG.fbx.defaultRestoredName;
       const ext = (format || "png").toLowerCase();
@@ -2459,6 +2528,7 @@ ${error.message}`, "error");
         case "MKV": return "video/x-matroska";
         case "OGV":
         case "OGG": return "video/ogg";
+        case "MAX": return "application/octet-stream";
         case "PNG": return "image/png";
         case "JPG":
         case "JPEG": return "image/jpeg";
@@ -2475,6 +2545,10 @@ ${error.message}`, "error");
       return (format || "").toUpperCase() === "FBX";
     }
 
+    function isMaxFormat(format) {
+      return (format || "").toUpperCase() === "MAX";
+    }
+
     function isVideoFormat(format) {
       return ["MP4", "M4V", "MOV", "WEBM", "AVI", "MKV", "OGV", "OGG"].includes((format || "").toUpperCase());
     }
@@ -2489,6 +2563,7 @@ ${error.message}`, "error");
       const upper = (format || "").toUpperCase();
       switch (upper) {
         case "FBX": return "fbx";
+        case "MAX": return "max";
         case "MP4": return "mp4";
         case "M4V": return "m4v";
         case "MOV": return "mov";
