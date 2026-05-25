@@ -291,10 +291,22 @@
       margin-bottom: 16px;
     }
 
+    .topbar-controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      align-items: flex-start;
+    }
+
     @media (max-width: 760px) {
       .topbar {
         flex-direction: column;
         align-items: stretch;
+      }
+
+      .topbar-controls {
+        justify-content: stretch;
       }
     }
 
@@ -347,28 +359,81 @@
     }
 
     .mode-switcher {
-      display: inline-flex;
-      align-items: center;
+      display: inline-grid;
       gap: 8px;
-      padding: 8px;
+      padding: 10px 12px 12px;
       border: 1px solid var(--line);
-      border-radius: 999px;
+      border-radius: 24px;
       background: var(--panel);
       box-shadow: var(--shadow);
-      flex-wrap: wrap;
+      min-width: 220px;
     }
 
     .mode-switcher-label {
       color: var(--muted);
-      font-size: 12px;
-      padding: 0 4px 0 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0 2px;
+    }
+
+    .mode-field {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .mode-field::after {
+      content: "";
+      position: absolute;
+      right: 16px;
+      width: 10px;
+      height: 10px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: translateY(-2px) rotate(45deg);
+      color: var(--muted);
+      pointer-events: none;
     }
 
     .mode-select {
-      min-width: 150px;
-      min-height: 38px;
+      width: 100%;
+      min-width: 0;
+      min-height: 46px;
       border-radius: 999px;
-      padding: 8px 14px;
+      padding: 10px 42px 10px 16px;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      border: 1px solid rgba(37, 99, 235, 0.2);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.96), rgba(243,246,252,0.92));
+      font-weight: 650;
+      color: var(--text);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.85),
+        0 8px 18px rgba(15, 23, 42, 0.06);
+    }
+
+    .mode-select:hover {
+      border-color: rgba(37, 99, 235, 0.35);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.92),
+        0 10px 22px rgba(37, 99, 235, 0.10);
+    }
+
+    :root[data-theme="dark"] .mode-select {
+      background:
+        linear-gradient(180deg, rgba(31, 41, 55, 0.96), rgba(20, 28, 40, 0.94));
+      border-color: rgba(96, 165, 250, 0.24);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.04),
+        0 10px 24px rgba(0, 0, 0, 0.28);
+    }
+
+    :root[data-theme="dark"] .mode-select:hover {
+      border-color: rgba(96, 165, 250, 0.42);
     }
 
     .batch-list {
@@ -394,16 +459,18 @@
         <p id="heroDescription">純前端工具。圖片與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。</p>
       </div>
 
-      <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+      <div class="topbar-controls">
         <div class="mode-switcher" aria-label="Mode Switcher">
           <label class="mode-switcher-label" for="modeSelect">Mode</label>
-          <select id="modeSelect" class="mode-select" aria-label="Mode Select">
-            <option value="image">Image</option>
-            <option value="fbx">FBX</option>
-            <option value="video">Video</option>
-            <option value="max">MAX</option>
-            <option value="archive">Archive</option>
-          </select>
+          <div class="mode-field">
+            <select id="modeSelect" class="mode-select" aria-label="Mode Select">
+              <option value="image">Image</option>
+              <option value="fbx">FBX</option>
+              <option value="video">Video</option>
+              <option value="max">MAX</option>
+              <option value="archive">Archive</option>
+            </select>
+          </div>
         </div>
 
         <div class="theme-switcher" aria-label="Theme Switcher">
