@@ -413,6 +413,7 @@
           <button id="modeFbxButton" class="mode-button secondary" type="button" data-mode-option="fbx" aria-pressed="false">FBX</button>
           <button id="modeVideoButton" class="mode-button secondary" type="button" data-mode-option="video" aria-pressed="false">Video</button>
           <button id="modeMaxButton" class="mode-button secondary" type="button" data-mode-option="max" aria-pressed="false">MAX</button>
+          <button id="modeArchiveButton" class="mode-button secondary" type="button" data-mode-option="archive" aria-pressed="false">Archive</button>
         </div>
 
         <div class="theme-switcher" aria-label="Theme Switcher">
@@ -874,6 +875,55 @@ BASE64_END</div>
         downloadRestoredLabel: "Download MAX",
         decodeButtonLabel: "Import Base64 Text To MAX",
         sourceMode: "RawMaxFileEncode"
+      },
+      archive: {
+        title: "Archive Base64 Transfer",
+        workflowNotice: "建議流程：壓縮檔 → 匯出 Base64 txt → Export to GitHub → 另一端 Import from GitHub → 還原壓縮檔。Archive 模式只保證原始 bytes 一致，不解壓、不檢查內容。",
+        heroDescription: "純前端工具。壓縮檔與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。Archive 模式只保證原始 bytes round-trip。",
+        githubSettingsDescription: "指定要讀寫的 Repo 與檔案路徑。Archive 模式與其他模式各自使用獨立的 File Path / Batch Base Path，避免混用。",
+        githubPathHint: "Repo 內的 Archive txt 檔路徑，例如 transfers/ArchiveBase64_Export.txt。",
+        githubBatchPathHint: "Archive 批量模式用的 repo 資料夾路徑，例如 archive-batch-transfers。上傳時會在此路徑下保留子資料夾結構。",
+        defaultGithubPath: "ArchiveBase64_Export.txt",
+        defaultGithubBatchPath: "archive-batch-transfers",
+        defaultCommitMessage: "Update archive base64 transfer text",
+        exportSectionTitle: "Export：壓縮檔 → Base64 文字",
+        exportSectionDescription: "選擇壓縮檔後，工具會直接讀取原始檔案 bytes 並轉成 Base64。這是檔案級轉換，目標是 round-trip 後 SHA256 與 BYTE_LENGTH 完全一致。",
+        exportFileLabel: "Source Archive File",
+        exportFileHint: "支援 `.zip`、`.rar`、`.7z`、`.tar`、`.gz`、`.tgz`、`.bz2`、`.xz`。Archive 模式不做預覽，也不解壓內容。",
+        exportAccept: ".zip,.rar,.7z,.tar,.gz,.tgz,.bz2,.xz,application/zip,application/x-7z-compressed,application/vnd.rar,application/x-tar,application/gzip",
+        exportFileNameLabel: "Output Txt File Name",
+        exportFileNameHint: "下載 txt 時使用的檔名。",
+        defaultExportTxtName: "ArchiveBase64_Export.txt",
+        exportMetadataTitle: "Export Metadata",
+        exportTextOutputLabel: "Generated Txt Content",
+        exportTextOutputHint: "這裡會產生完整 txt 內容，包含 metadata、SHA256、BASE64_BEGIN / BASE64_END。",
+        importSectionTitle: "Import：Base64 文字 → 壓縮檔",
+        importSectionDescription: "可匯入 txt 檔、直接貼上整份 txt 內容，或從 GitHub 指定檔案讀取，再還原成壓縮檔。",
+        importTxtFileLabel: "Archive Base64 Txt File",
+        importTxtFileHint: "選擇由本工具輸出的 Archive txt，也可選擇只包含純 Base64 的 txt。",
+        importTextInputLabel: "Full Txt Content",
+        importTextInputHint: "直接貼上完整 txt 內容。可以包含 metadata，也可以只貼純 Base64。",
+        importTextPlaceholder: "Paste full exported Archive txt content or plain Base64 here...",
+        restoredFileNameLabel: "Restored Archive File Name",
+        restoredFileNameHint: "下載還原檔案時使用的檔名。副檔名應為 `.zip` / `.rar` / `.7z` / `.tar` / `.gz` 等原始格式。",
+        defaultRestoredName: "ArchiveBase64_Restored.zip",
+        importMetadataTitle: "Import Metadata",
+        batchSectionTitle: "Batch：壓縮檔資料夾批量匯出 / 匯入",
+        batchSectionDescription: "可一次選整個資料夾處理多個壓縮檔。Archive 模式不做預覽，也不解壓內容，只保證原始 bytes round-trip。",
+        batchExportFolderLabel: "Source Archive Folder",
+        batchExportFolderHint: "選擇包含壓縮檔的資料夾。子資料夾也會一起掃描。",
+        batchExportAccept: ".zip,.rar,.7z,.tar,.gz,.tgz,.bz2,.xz",
+        batchImportFolderLabel: "Source Archive Txt Folder",
+        batchImportFolderHint: "選擇包含 Archive `.txt` 的資料夾。子資料夾也會一起掃描。",
+        batchExtensions: [".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".xz"],
+        previewKind: "none",
+        previewDisabledText: "Preview disabled in Archive mode",
+        emptyExportMeta: "No archive loaded.",
+        emptyImportMeta: "No archive decoded.",
+        importSuccessText: "Import succeeded. You can now download the restored archive.",
+        downloadRestoredLabel: "Download Archive",
+        decodeButtonLabel: "Import Base64 Text To Archive",
+        sourceMode: "RawArchiveFileEncode"
       }
     };
 
@@ -943,6 +993,7 @@ BASE64_END</div>
     const modeFbxButton = document.getElementById("modeFbxButton");
     const modeVideoButton = document.getElementById("modeVideoButton");
     const modeMaxButton = document.getElementById("modeMaxButton");
+    const modeArchiveButton = document.getElementById("modeArchiveButton");
     const heroDescription = document.getElementById("heroDescription");
     const githubSettingsDescription = document.getElementById("githubSettingsDescription");
     const githubPathLabel = document.getElementById("githubPathLabel");
@@ -976,7 +1027,7 @@ BASE64_END</div>
     const batchImportFolderLabel = document.getElementById("batchImportFolderLabel");
     const batchImportFolderHint = document.getElementById("batchImportFolderHint");
     const themeButtons = [themeLightButton, themeDarkButton, themeSystemButton];
-    const modeButtons = [modeImageButton, modeFbxButton, modeVideoButton, modeMaxButton];
+    const modeButtons = [modeImageButton, modeFbxButton, modeVideoButton, modeMaxButton, modeArchiveButton];
 
     let exportTxtObjectUrl = null;
     let importImageObjectUrl = null;
@@ -1452,6 +1503,10 @@ BASE64_END</div>
             max: {
               path: currentMode === "max" ? githubPath.value.trim() : existingPaths.max.path,
               batchPath: currentMode === "max" ? githubBatchPath.value.trim() : existingPaths.max.batchPath
+            },
+            archive: {
+              path: currentMode === "archive" ? githubPath.value.trim() : existingPaths.archive.path,
+              batchPath: currentMode === "archive" ? githubBatchPath.value.trim() : existingPaths.archive.batchPath
             }
           },
           commitMessage: githubCommitMessage.value.trim(),
@@ -2183,7 +2238,8 @@ ${error.message}`, "error");
         image: { path: MODE_CONFIG.image.defaultGithubPath, batchPath: MODE_CONFIG.image.defaultGithubBatchPath },
         fbx: { path: MODE_CONFIG.fbx.defaultGithubPath, batchPath: MODE_CONFIG.fbx.defaultGithubBatchPath },
         video: { path: MODE_CONFIG.video.defaultGithubPath, batchPath: MODE_CONFIG.video.defaultGithubBatchPath },
-        max: { path: MODE_CONFIG.max.defaultGithubPath, batchPath: MODE_CONFIG.max.defaultGithubBatchPath }
+        max: { path: MODE_CONFIG.max.defaultGithubPath, batchPath: MODE_CONFIG.max.defaultGithubBatchPath },
+        archive: { path: MODE_CONFIG.archive.defaultGithubPath, batchPath: MODE_CONFIG.archive.defaultGithubBatchPath }
       };
       if (!raw) return defaults;
       if (raw.paths) {
@@ -2203,6 +2259,10 @@ ${error.message}`, "error");
           max: {
             path: raw.paths.max && raw.paths.max.path ? raw.paths.max.path : defaults.max.path,
             batchPath: raw.paths.max && raw.paths.max.batchPath ? raw.paths.max.batchPath : defaults.max.batchPath
+          },
+          archive: {
+            path: raw.paths.archive && raw.paths.archive.path ? raw.paths.archive.path : defaults.archive.path,
+            batchPath: raw.paths.archive && raw.paths.archive.batchPath ? raw.paths.archive.batchPath : defaults.archive.batchPath
           }
         };
       }
@@ -2213,7 +2273,8 @@ ${error.message}`, "error");
         },
         fbx: defaults.fbx,
         video: defaults.video,
-        max: defaults.max
+        max: defaults.max,
+        archive: defaults.archive
       };
     }
 
@@ -2452,18 +2513,20 @@ ${error.message}`, "error");
     }
 
     function getCurrentModeLabel() {
-      return currentMode === "video" ? "video" : currentMode === "fbx" ? "FBX" : currentMode === "max" ? "MAX" : "image";
+      return currentMode === "video" ? "video" : currentMode === "fbx" ? "FBX" : currentMode === "max" ? "MAX" : currentMode === "archive" ? "archive" : "image";
     }
 
     function getExportFormatForCurrentMode(extension) {
       if (currentMode === "fbx") return "FBX";
       if (currentMode === "max") return "MAX";
+      if (currentMode === "archive") return normalizeArchiveFormat(extension);
       return currentMode === "video" ? normalizeVideoFormat(extension) : extension;
     }
 
     function getBytesLabelForMode(modeConfig) {
       if (!modeConfig) return "Bytes";
       if (modeConfig === MODE_CONFIG.video || modeConfig.title === MODE_CONFIG.video.title) return "Video Bytes";
+      if (modeConfig === MODE_CONFIG.archive || modeConfig.title === MODE_CONFIG.archive.title) return "Archive Bytes";
       if (modeConfig === MODE_CONFIG.max || modeConfig.title === MODE_CONFIG.max.title) return "File Bytes";
       if (modeConfig === MODE_CONFIG.fbx || modeConfig.title === MODE_CONFIG.fbx.title) return "File Bytes";
       return "Image Bytes";
@@ -2474,6 +2537,7 @@ ${error.message}`, "error");
     }
 
     function getBytesLabelForFormat(format) {
+      if (isArchiveFormat(format)) return "Archive Bytes";
       if (isVideoFormat(format)) return "Video Bytes";
       if (isMaxFormat(format)) return "File Bytes";
       if (isFbxFormat(format)) return "File Bytes";
@@ -2481,6 +2545,7 @@ ${error.message}`, "error");
     }
 
     function getPreviewKindForFormat(format) {
+      if (isArchiveFormat(format)) return "none";
       if (isVideoFormat(format)) return "video";
       if (isMaxFormat(format)) return "none";
       if (isFbxFormat(format)) return "none";
@@ -2488,6 +2553,7 @@ ${error.message}`, "error");
     }
 
     function getPreviewDisabledTextForFormat(format) {
+      if (isArchiveFormat(format)) return MODE_CONFIG.archive.previewDisabledText;
       if (isMaxFormat(format)) return MODE_CONFIG.max.previewDisabledText;
       if (isFbxFormat(format)) return MODE_CONFIG.fbx.previewDisabledText;
       if (isVideoFormat(format)) return MODE_CONFIG.video.previewDisabledText;
@@ -2495,6 +2561,7 @@ ${error.message}`, "error");
     }
 
     function getDownloadLabelForFormat(format) {
+      if (isArchiveFormat(format)) return MODE_CONFIG.archive.downloadRestoredLabel;
       if (isMaxFormat(format)) return MODE_CONFIG.max.downloadRestoredLabel;
       if (isVideoFormat(format)) return MODE_CONFIG.video.downloadRestoredLabel;
       if (isFbxFormat(format)) return MODE_CONFIG.fbx.downloadRestoredLabel;
@@ -2502,6 +2569,7 @@ ${error.message}`, "error");
     }
 
     function getImportSuccessTextForFormat(format) {
+      if (isArchiveFormat(format)) return MODE_CONFIG.archive.importSuccessText;
       if (isMaxFormat(format)) return MODE_CONFIG.max.importSuccessText;
       if (isVideoFormat(format)) return MODE_CONFIG.video.importSuccessText;
       if (isFbxFormat(format)) return MODE_CONFIG.fbx.importSuccessText;
@@ -2509,6 +2577,7 @@ ${error.message}`, "error");
     }
 
     function suggestedRestoredName(format) {
+      if (isArchiveFormat(format)) return `ArchiveBase64_Restored.${normalizeOutputExtension(format) || "zip"}`;
       if (isMaxFormat(format)) return MODE_CONFIG.max.defaultRestoredName;
       if (isVideoFormat(format)) return `VideoBase64_Restored.${normalizeOutputExtension(format) || "mp4"}`;
       if (isFbxFormat(format)) return MODE_CONFIG.fbx.defaultRestoredName;
@@ -2528,6 +2597,14 @@ ${error.message}`, "error");
         case "MKV": return "video/x-matroska";
         case "OGV":
         case "OGG": return "video/ogg";
+        case "ZIP": return "application/zip";
+        case "RAR": return "application/vnd.rar";
+        case "7Z": return "application/x-7z-compressed";
+        case "TAR": return "application/x-tar";
+        case "GZ":
+        case "TGZ": return "application/gzip";
+        case "BZ2": return "application/x-bzip2";
+        case "XZ": return "application/x-xz";
         case "MAX": return "application/octet-stream";
         case "PNG": return "image/png";
         case "JPG":
@@ -2549,8 +2626,17 @@ ${error.message}`, "error");
       return (format || "").toUpperCase() === "MAX";
     }
 
+    function isArchiveFormat(format) {
+      return ["ZIP", "RAR", "7Z", "TAR", "GZ", "TGZ", "BZ2", "XZ"].includes((format || "").toUpperCase());
+    }
+
     function isVideoFormat(format) {
       return ["MP4", "M4V", "MOV", "WEBM", "AVI", "MKV", "OGV", "OGG"].includes((format || "").toUpperCase());
+    }
+
+    function normalizeArchiveFormat(format) {
+      const upper = (format || "").toUpperCase();
+      return upper === "TGZ" ? "TGZ" : upper;
     }
 
     function normalizeVideoFormat(format) {
@@ -2562,6 +2648,14 @@ ${error.message}`, "error");
     function normalizeOutputExtension(format, bytes) {
       const upper = (format || "").toUpperCase();
       switch (upper) {
+        case "ZIP": return "zip";
+        case "RAR": return "rar";
+        case "7Z": return "7z";
+        case "TAR": return "tar";
+        case "GZ": return "gz";
+        case "TGZ": return "tgz";
+        case "BZ2": return "bz2";
+        case "XZ": return "xz";
         case "FBX": return "fbx";
         case "MAX": return "max";
         case "MP4": return "mp4";
@@ -2583,6 +2677,13 @@ ${error.message}`, "error");
         default: {
           const mimeType = getMimeTypeFromFormat(format, bytes);
           switch (mimeType) {
+            case "application/zip": return "zip";
+            case "application/vnd.rar": return "rar";
+            case "application/x-7z-compressed": return "7z";
+            case "application/x-tar": return "tar";
+            case "application/gzip": return "gz";
+            case "application/x-bzip2": return "bz2";
+            case "application/x-xz": return "xz";
             case "video/mp4": return "mp4";
             case "video/quicktime": return "mov";
             case "video/webm": return "webm";
@@ -2603,6 +2704,17 @@ ${error.message}`, "error");
 
     function getMimeTypeFromBytes(bytes) {
       if (!bytes || bytes.length < 12) return "";
+      if ((bytes[0] === 0x50 && bytes[1] === 0x4B) && (
+        (bytes[2] === 0x03 && bytes[3] === 0x04) ||
+        (bytes[2] === 0x05 && bytes[3] === 0x06) ||
+        (bytes[2] === 0x07 && bytes[3] === 0x08)
+      )) return "application/zip";
+      if (bytes[0] === 0x52 && bytes[1] === 0x61 && bytes[2] === 0x72 && bytes[3] === 0x21 && bytes[4] === 0x1A && bytes[5] === 0x07) return "application/vnd.rar";
+      if (bytes[0] === 0x37 && bytes[1] === 0x7A && bytes[2] === 0xBC && bytes[3] === 0xAF && bytes[4] === 0x27 && bytes[5] === 0x1C) return "application/x-7z-compressed";
+      if (bytes[0] === 0x1F && bytes[1] === 0x8B) return "application/gzip";
+      if (bytes[0] === 0x42 && bytes[1] === 0x5A && bytes[2] === 0x68) return "application/x-bzip2";
+      if (bytes[0] === 0xFD && bytes[1] === 0x37 && bytes[2] === 0x7A && bytes[3] === 0x58 && bytes[4] === 0x5A && bytes[5] === 0x00) return "application/x-xz";
+      if (bytes.length > 262 && bytes[257] === 0x75 && bytes[258] === 0x73 && bytes[259] === 0x74 && bytes[260] === 0x61 && bytes[261] === 0x72) return "application/x-tar";
       if (bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
         const brand = String.fromCharCode(bytes[8] || 0, bytes[9] || 0, bytes[10] || 0, bytes[11] || 0);
         if (brand === "qt  ") return "video/quicktime";
@@ -2631,6 +2743,13 @@ ${error.message}`, "error");
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
         const mime = getMimeTypeFromBytes(bytes);
         switch (mime) {
+          case "application/zip": return "ZIP";
+          case "application/vnd.rar": return "RAR";
+          case "application/x-7z-compressed": return "7Z";
+          case "application/x-tar": return "TAR";
+          case "application/gzip": return "GZ";
+          case "application/x-bzip2": return "BZ2";
+          case "application/x-xz": return "XZ";
           case "video/mp4": return "MP4";
           case "video/quicktime": return "MOV";
           case "video/webm": return "WEBM";
