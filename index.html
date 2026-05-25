@@ -6,71 +6,138 @@
   <meta name="color-scheme" content="light dark" />
   <title>Image Base64 Transfer</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #f5f5f5;
-      --panel: #ffffff;
-      --text: #1f1f1f;
-      --muted: #666666;
-      --line: #d7d7d7;
-      --soft-bg: #fafafa;
-      --subtle-bg: #f9fafb;
-      --preview-grid-a: #f3f4f6;
-      --preview-grid-b: #ffffff;
-      --shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
-      --accent: #2563eb;
-      --accent-hover: #1d4ed8;
-      --danger: #b91c1c;
-      --success: #047857;
-      --warning-bg: #fff7ed;
-      --warning-line: #fdba74;
-      --info-bg: #eff6ff;
-      --info-line: #93c5fd;
-      --radius: 12px;
+      --cream: #e3e3e8;
+      --cream-strong: #ebebef;
+      --panel: rgba(235, 235, 242, 0.76);
+      --panel-solid: rgba(243, 243, 247, 0.92);
+      --text: #2a1f17;
+      --muted: #6d625a;
+      --line: rgba(42, 31, 23, 0.14);
+      --soft-bg: rgba(255, 255, 255, 0.38);
+      --subtle-bg: rgba(255, 255, 255, 0.52);
+      --preview-grid-a: rgba(122, 74, 40, 0.05);
+      --preview-grid-b: rgba(255, 255, 255, 0.5);
+      --shadow: 0 24px 64px rgba(42, 31, 23, 0.09);
+      --accent: #2a1f17;
+      --accent-hover: #7a4a28;
+      --danger: #9c5050;
+      --success: #4a7c59;
+      --warning-bg: rgba(122, 74, 40, 0.09);
+      --warning-line: rgba(122, 74, 40, 0.3);
+      --info-bg: rgba(122, 74, 40, 0.08);
+      --info-line: rgba(42, 31, 23, 0.16);
+      --radius: 24px;
+      --font-serif: 'Noto Serif TC', Georgia, serif;
+      --font-sans: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
     }
 
     :root[data-theme="dark"] {
-      --bg: #0b1220;
-      --panel: #111827;
-      --text: #e5eefc;
-      --muted: #9ca3af;
-      --line: #2a3547;
-      --soft-bg: #0f172a;
-      --subtle-bg: #101927;
-      --preview-grid-a: #1f2937;
-      --preview-grid-b: #111827;
-      --shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
-      --accent: #60a5fa;
-      --accent-hover: #3b82f6;
-      --danger: #f87171;
-      --success: #34d399;
-      --warning-bg: #3a2213;
-      --warning-line: #fb923c;
-      --info-bg: #13233d;
-      --info-line: #60a5fa;
+      --cream: #0d1625;
+      --cream-strong: #111b2b;
+      --panel: rgba(14, 22, 36, 0.82);
+      --panel-solid: rgba(19, 28, 42, 0.92);
+      --text: #e6edf7;
+      --muted: #9aa5b4;
+      --line: rgba(148, 163, 184, 0.18);
+      --soft-bg: rgba(255, 255, 255, 0.03);
+      --subtle-bg: rgba(255, 255, 255, 0.05);
+      --preview-grid-a: rgba(255, 255, 255, 0.03);
+      --preview-grid-b: rgba(255, 255, 255, 0.015);
+      --shadow: 0 24px 64px rgba(0, 0, 0, 0.34);
+      --accent: #e6edf7;
+      --accent-hover: #c58a58;
+      --danger: #d27a7a;
+      --success: #76a987;
+      --warning-bg: rgba(197, 138, 88, 0.1);
+      --warning-line: rgba(197, 138, 88, 0.32);
+      --info-bg: rgba(255, 255, 255, 0.04);
+      --info-line: rgba(148, 163, 184, 0.2);
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--bg);
+      font-family: var(--font-sans);
       color: var(--text);
       line-height: 1.5;
+      background:
+        radial-gradient(circle at 80% 0%, rgba(240, 240, 248, 0.85), transparent 35%),
+        linear-gradient(180deg, #ebebef 0%, #e3e3e8 50%, #d8d8de 100%);
+      min-height: 100vh;
+      overflow-x: hidden;
       transition: background-color 0.2s ease, color 0.2s ease;
     }
 
-    main {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 28px 18px 64px;
+    :root[data-theme="dark"] body {
+      background:
+        radial-gradient(circle at 80% 0%, rgba(53, 68, 89, 0.32), transparent 35%),
+        linear-gradient(180deg, #0b1320 0%, #0d1625 48%, #101b2b 100%);
     }
 
-    h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.02em; }
-    h2 { margin: 0 0 14px; font-size: 20px; }
-    h3 { margin: 18px 0 10px; font-size: 16px; }
-    p { margin: 0 0 10px; color: var(--muted); }
+    .grain {
+      position: fixed;
+      inset: -100px 0;
+      background-image:
+        radial-gradient(circle at 20px 20px, rgba(50, 50, 70, 0.045) 1px, transparent 1.5px),
+        radial-gradient(circle at 60px 60px, rgba(50, 50, 70, 0.035) 1px, transparent 1.5px);
+      background-size: 120px 120px, 80px 80px;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.9;
+    }
+
+    :root[data-theme="dark"] .grain {
+      opacity: 0.3;
+      background-image:
+        radial-gradient(circle at 20px 20px, rgba(180, 190, 210, 0.04) 1px, transparent 1.5px),
+        radial-gradient(circle at 60px 60px, rgba(180, 190, 210, 0.03) 1px, transparent 1.5px);
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 42px 28px 88px;
+    }
+
+    h1 {
+      margin: 0 0 14px;
+      font-family: var(--font-serif);
+      font-size: clamp(42px, 6vw, 72px);
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+      font-weight: 700;
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-family: var(--font-serif);
+      font-size: 30px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    h3 {
+      margin: 20px 0 12px;
+      font-family: var(--font-serif);
+      font-size: 19px;
+      font-weight: 600;
+    }
+
+    p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.8;
+    }
 
     .grid {
       display: grid;
@@ -87,18 +154,21 @@
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      padding: 18px;
+      padding: 24px;
       box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
     }
 
     .notice {
-      padding: 12px 14px;
-      border-radius: 10px;
+      padding: 16px 18px;
+      border-radius: 18px;
       border: 1px solid var(--info-line);
       background: var(--info-bg);
-      color: #1e3a8a;
-      margin: 14px 0;
+      color: var(--text);
+      margin: 22px 0;
       font-size: 14px;
+      line-height: 1.8;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
     }
 
     .warning {
@@ -109,9 +179,11 @@
 
     label {
       display: block;
-      font-weight: 650;
+      font-weight: 700;
       margin: 14px 0 6px;
-      font-size: 14px;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
     }
 
     .hint {
@@ -119,30 +191,33 @@
       color: var(--muted);
       font-weight: 400;
       font-size: 12px;
-      margin-top: 2px;
+      margin-top: 4px;
+      letter-spacing: 0;
+      text-transform: none;
     }
 
     input[type="file"], input[type="text"], input[type="password"], input[type="number"], select, textarea {
       width: 100%;
       border: 1px solid var(--line);
-      border-radius: 9px;
-      padding: 10px 11px;
-      background: var(--panel);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: var(--panel-solid);
       color: var(--text);
       font: inherit;
       font-size: 14px;
       outline: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.28);
     }
 
     input:focus, select:focus, textarea:focus {
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+      box-shadow: 0 0 0 3px rgba(122, 74, 40, 0.1);
     }
 
     textarea {
       min-height: 220px;
       resize: vertical;
-      font-family: Consolas, Monaco, "Courier New", monospace;
+      font-family: var(--font-mono);
       font-size: 12px;
       line-height: 1.45;
     }
@@ -172,33 +247,45 @@
 
     button, .download-link {
       border: 0;
-      border-radius: 9px;
-      padding: 10px 14px;
+      border-radius: 999px;
+      padding: 12px 18px;
       background: var(--accent);
-      color: #ffffff;
+      color: var(--cream);
       font: inherit;
-      font-size: 14px;
-      font-weight: 650;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
       cursor: pointer;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 40px;
+      min-height: 44px;
+      transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
     }
 
-    button:hover, .download-link:hover { background: var(--accent-hover); }
-    button.secondary { background: #e5e7eb; color: #111827; }
-    button.secondary:hover { background: #d1d5db; }
-    button.danger { background: #dc2626; }
-    button.danger:hover { background: #b91c1c; }
-
-    :root[data-theme="dark"] button.secondary {
-      background: #243041;
-      color: #e5eefc;
+    button:hover, .download-link:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
     }
 
-    :root[data-theme="dark"] button.secondary:hover { background: #314156; }
+    button.secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    button.secondary:hover {
+      background: rgba(122, 74, 40, 0.06);
+      border-color: rgba(122, 74, 40, 0.35);
+    }
+
+    button.danger {
+      background: var(--danger);
+      color: #fdf5f5;
+    }
+
+    button.danger:hover { background: #7f3e3e; }
 
     button:disabled, .download-link.disabled {
       opacity: 0.5;
@@ -208,13 +295,13 @@
 
     .result-box {
       margin-top: 14px;
-      padding: 12px;
-      border-radius: 10px;
+      padding: 16px;
+      border-radius: 18px;
       border: 1px solid var(--line);
       background: var(--soft-bg);
       white-space: pre-wrap;
       overflow-wrap: anywhere;
-      font-family: Consolas, Monaco, "Courier New", monospace;
+      font-family: var(--font-mono);
       font-size: 12px;
       color: var(--text);
       min-height: 72px;
@@ -237,7 +324,7 @@
       max-width: 220px;
       min-height: 140px;
       border: 1px dashed var(--line);
-      border-radius: 10px;
+      border-radius: 18px;
       background: repeating-conic-gradient(var(--preview-grid-a) 0% 25%, var(--preview-grid-b) 0% 50%) 50% / 20px 20px;
       display: flex;
       align-items: center;
@@ -256,7 +343,7 @@
     }
 
     .meta {
-      font-family: Consolas, Monaco, "Courier New", monospace;
+      font-family: var(--font-mono);
       font-size: 12px;
       color: var(--text);
       word-break: break-all;
@@ -264,31 +351,34 @@
     }
 
     .status {
-      margin-top: 12px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: var(--subtle-bg);
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.18);
       border: 1px solid var(--line);
       font-size: 13px;
+      line-height: 1.7;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
     }
 
-    .status.success { color: var(--success); border-color: #a7f3d0; background: #ecfdf5; }
-    .status.error { color: var(--danger); border-color: #fecaca; background: #fef2f2; }
+    .status.success { color: var(--success); border-color: rgba(74, 124, 89, 0.28); background: rgba(74, 124, 89, 0.08); }
+    .status.error { color: var(--danger); border-color: rgba(156, 80, 80, 0.28); background: rgba(156, 80, 80, 0.08); }
     .small { font-size: 12px; color: var(--muted); }
     .hidden { display: none !important; }
     .mono { font-family: Consolas, Monaco, "Courier New", monospace; }
 
-    :root[data-theme="dark"] .status.success { border-color: #065f46; background: #06281e; }
-    :root[data-theme="dark"] .status.error { border-color: #7f1d1d; background: #2a1113; }
+    :root[data-theme="dark"] .status.success { border-color: rgba(118, 169, 135, 0.26); background: rgba(118, 169, 135, 0.08); }
+    :root[data-theme="dark"] .status.error { border-color: rgba(210, 122, 122, 0.24); background: rgba(210, 122, 122, 0.08); }
 
     .topbar {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 14px;
-      margin-bottom: 16px;
+      gap: 42px;
+      margin-bottom: 24px;
+      padding-bottom: 30px;
+      border-bottom: 1px solid var(--line);
     }
 
     .topbar-controls {
@@ -297,6 +387,18 @@
       flex-wrap: wrap;
       justify-content: flex-end;
       align-items: flex-start;
+    }
+
+    .topbar-copy {
+      max-width: 860px;
+    }
+
+    .eyeline {
+      margin-bottom: 18px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
     }
 
     @media (max-width: 760px) {
@@ -394,11 +496,17 @@
         0 0 0 1px rgba(37, 99, 235, 0.07);
     }
 
+    :root[data-theme="dark"] .control-card.control-card-accent {
+      box-shadow:
+        var(--shadow),
+        0 0 0 1px rgba(197, 138, 88, 0.08);
+    }
+
     .batch-list {
       margin-top: 14px;
-      padding: 12px;
+      padding: 16px;
       border: 1px solid var(--line);
-      border-radius: 10px;
+      border-radius: 18px;
       background: var(--soft-bg);
       white-space: pre-wrap;
       overflow-wrap: anywhere;
@@ -406,13 +514,16 @@
       overflow-y: auto;
       font-size: 12px;
       color: var(--text);
+      font-family: var(--font-mono);
     }
   </style>
 </head>
 <body>
+  <div class="grain" aria-hidden="true"></div>
   <main>
     <div class="topbar">
-      <div>
+      <div class="topbar-copy">
+        <div class="eyeline">Base64 Transfer · Browser-Side Utility</div>
         <h1 id="pageTitle">Image Base64 Transfer</h1>
         <p id="heroDescription">純前端工具。圖片與 Base64 文字轉換都在瀏覽器本機完成；GitHub 同步功能會呼叫 GitHub REST API。</p>
       </div>
