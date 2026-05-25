@@ -364,23 +364,11 @@
       padding: 0 4px 0 6px;
     }
 
-    .mode-button {
+    .mode-select {
+      min-width: 150px;
       min-height: 38px;
-      padding: 8px 12px;
       border-radius: 999px;
-      background: transparent;
-      color: var(--text);
-      border: 1px solid transparent;
-    }
-
-    .mode-button:hover {
-      background: var(--soft-bg);
-      color: var(--text);
-    }
-
-    .mode-button.active {
-      background: var(--accent);
-      color: #ffffff;
+      padding: 8px 14px;
     }
 
     .batch-list {
@@ -408,12 +396,14 @@
 
       <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
         <div class="mode-switcher" aria-label="Mode Switcher">
-          <span class="mode-switcher-label">Mode</span>
-          <button id="modeImageButton" class="mode-button secondary" type="button" data-mode-option="image" aria-pressed="false">Image</button>
-          <button id="modeFbxButton" class="mode-button secondary" type="button" data-mode-option="fbx" aria-pressed="false">FBX</button>
-          <button id="modeVideoButton" class="mode-button secondary" type="button" data-mode-option="video" aria-pressed="false">Video</button>
-          <button id="modeMaxButton" class="mode-button secondary" type="button" data-mode-option="max" aria-pressed="false">MAX</button>
-          <button id="modeArchiveButton" class="mode-button secondary" type="button" data-mode-option="archive" aria-pressed="false">Archive</button>
+          <label class="mode-switcher-label" for="modeSelect">Mode</label>
+          <select id="modeSelect" class="mode-select" aria-label="Mode Select">
+            <option value="image">Image</option>
+            <option value="fbx">FBX</option>
+            <option value="video">Video</option>
+            <option value="max">MAX</option>
+            <option value="archive">Archive</option>
+          </select>
         </div>
 
         <div class="theme-switcher" aria-label="Theme Switcher">
@@ -986,14 +976,10 @@ BASE64_END</div>
     const batchLog = document.getElementById("batchLog");
     const pageTitle = document.getElementById("pageTitle");
     const workflowNotice = document.getElementById("workflowNotice");
+    const modeSelect = document.getElementById("modeSelect");
     const themeLightButton = document.getElementById("themeLightButton");
     const themeDarkButton = document.getElementById("themeDarkButton");
     const themeSystemButton = document.getElementById("themeSystemButton");
-    const modeImageButton = document.getElementById("modeImageButton");
-    const modeFbxButton = document.getElementById("modeFbxButton");
-    const modeVideoButton = document.getElementById("modeVideoButton");
-    const modeMaxButton = document.getElementById("modeMaxButton");
-    const modeArchiveButton = document.getElementById("modeArchiveButton");
     const heroDescription = document.getElementById("heroDescription");
     const githubSettingsDescription = document.getElementById("githubSettingsDescription");
     const githubPathLabel = document.getElementById("githubPathLabel");
@@ -1027,7 +1013,6 @@ BASE64_END</div>
     const batchImportFolderLabel = document.getElementById("batchImportFolderLabel");
     const batchImportFolderHint = document.getElementById("batchImportFolderHint");
     const themeButtons = [themeLightButton, themeDarkButton, themeSystemButton];
-    const modeButtons = [modeImageButton, modeFbxButton, modeVideoButton, modeMaxButton, modeArchiveButton];
 
     let exportTxtObjectUrl = null;
     let importImageObjectUrl = null;
@@ -1046,9 +1031,7 @@ BASE64_END</div>
     themeButtons.forEach(button => {
       button.addEventListener("click", () => setThemePreference(button.dataset.themeOption));
     });
-    modeButtons.forEach(button => {
-      button.addEventListener("click", () => setCurrentMode(button.dataset.modeOption));
-    });
+    modeSelect.addEventListener("change", () => setCurrentMode(modeSelect.value));
     systemThemeMedia.addEventListener("change", () => {
       if (getStoredThemePreference() === "system") applyTheme("system");
     });
@@ -2197,11 +2180,7 @@ ${error.message}`, "error");
         exportPreview.textContent = config.previewDisabledText;
         importPreview.textContent = config.previewDisabledText;
       }
-      modeButtons.forEach(button => {
-        const isActive = button.dataset.modeOption === currentMode;
-        button.classList.toggle("active", isActive);
-        button.setAttribute("aria-pressed", String(isActive));
-      });
+      modeSelect.value = currentMode;
       applyGithubPathFields();
       if (!exportFileNameInput.value || getAllModeDefaultValues("defaultExportTxtName").includes(exportFileNameInput.value)) {
         exportFileNameInput.value = config.defaultExportTxtName;
