@@ -799,6 +799,7 @@ BASE64_END</div>
     const MULTIPART_HEADER = "UNITY_IMAGE_BASE64_TRANSFER_MULTIPART_V1";
     const GITHUB_TEXT_FILE_MAX_CHARS = 700000;
     const GITHUB_MULTIPART_PART_CHARS = 500000;
+    const LOCAL_BASE64_ENCODE_CHUNK_BYTES = 3 * 1024 * 1024;
     const THEME_STORAGE_KEY = "imageBase64Transfer.theme.v1";
     const MODE_STORAGE_KEY = "imageBase64Transfer.mode.v1";
     const GITHUB_SETTINGS_STORAGE_KEY = "imageBase64Transfer.githubSettings.v2";
@@ -1149,6 +1150,7 @@ BASE64_END</div>
     let importImageObjectUrl = null;
     let lastImportMetadata = "";
     let currentMode = "image";
+    let currentExportPayload = null;
 
     window.addEventListener("DOMContentLoaded", () => {
       initializeMode();
@@ -1213,28 +1215,25 @@ BASE64_END</div>
 
         const lineLength = Math.max(256, parseInt(lineLengthInput.value || "8000", 10));
         lineLengthInput.value = String(lineLength);
+        const outputName = sanitizeFileName(exportFileNameInput.value || modeConfig.defaultExportTxtName, modeConfig.defaultExportTxtName);
+        exportFileNameInput.value = outputName;
 
         const arrayBuffer = await file.arrayBuffer();
         const bytes = new Uint8Array(arrayBuffer);
-        const base64 = uint8ArrayToBase64(bytes);
-        const sha256 = await calculateSHA256(bytes);
-        const assetSize = modeConfig.previewKind === "none" ? { width: 0, height: 0 } : await getAssetDimensionsFromFile(file, modeConfig.previewKind);
         const extension = getExtension(file.name).toUpperCase() || "UNKNOWN";
-        const createdUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-
-        const text = buildExportText({
-          createdUtc,
+        const assetSize = modeConfig.previewKind === "none" ? { width: 0, height: 0 } : await getAssetDimensionsFromFile(file, modeConfig.previewKind);
+        const exportPayload = await buildExportPayloadFromBytes({
+          bytes,
           source: file.name,
           sourceMode: modeConfig.sourceMode,
           format: getExportFormatForCurrentMode(extension),
           width: assetSize.width,
           height: assetSize.height,
-          byteLength: bytes.byteLength,
-          base64Length: base64.length,
           lineLength,
-          sha256,
-          base64
+          targetPath: outputName
         });
+        currentExportPayload = exportPayload;
+        const text = exportPayload.text;
 
         exportTextOutput.value = text;
         exportMeta.textContent = [
@@ -1243,15 +1242,16 @@ BASE64_END</div>
           `MIME: ${file.type || "unknown"}`,
           modeConfig.previewKind === "none" ? `Preview: ${modeConfig.previewDisabledText}` : `Size: ${assetSize.width || 0} x ${assetSize.height || 0}`,
           `${getModeBytesLabel()}: ${bytes.byteLength}`,
-          `Base64 Length: ${base64.length}`,
-          `SHA256: ${sha256}`
+          `Base64 Length: ${exportPayload.base64Length}`,
+          exportPayload.multipartParts ? `Local Multipart: ${exportPayload.multipartParts.length} parts` : null,
+          `SHA256: ${exportPayload.sha256}`
         ].filter(Boolean).join("\n");
 
-        const outputName = sanitizeFileName(exportFileNameInput.value || modeConfig.defaultExportTxtName, modeConfig.defaultExportTxtName);
-        exportFileNameInput.value = outputName;
         setDownloadLink(downloadTxtLink, text, "text/plain;charset=utf-8", outputName, "Download Txt");
         copyExportTextButton.disabled = false;
-        setStatus(exportStatus, "Export succeeded.", "success");
+        setStatus(exportStatus, exportPayload.multipartParts
+          ? `Export succeeded.\nLarge file was split locally into ${exportPayload.multipartParts.length} part files.`
+          : "Export succeeded.", "success");
         return text;
       } catch (error) {
         setStatus(exportStatus, `Export failed:\n${error.message}`, "error");
@@ -1268,7 +1268,14 @@ BASE64_END</div>
         const settings = getGithubSettings();
         setStatus(githubStatus, "Preparing GitHub update...", "");
         const branch = await resolveGithubBranch(settings);
-        const result = await githubUpsertBatchTextFile(settings, branch, settings.path, text, settings.commitMessage);
+        const result = await githubUpsertPreparedExport(
+          settings,
+          branch,
+          settings.path,
+          currentExportPayload && currentExportPayload.text === text ? currentExportPayload : null,
+          settings.commitMessage,
+          text
+        );
         setStatus(githubStatus, `Export to GitHub succeeded.\nPath: ${settings.path}\nBranch: ${branch}${result.multipart ? `\nMultipart: ${result.partCount} parts` : ""}`, "success");
       } catch (error) {
         setStatus(githubStatus, `Export to GitHub failed:\n${error.message}`, "error");
@@ -1380,16 +1387,26 @@ BASE64_END</div>
         let successCount = 0;
 
         for (const file of sourceFiles) {
-          const exportData = await buildExportDataFromFile(file);
+          const targetRelativePath = replaceExtension(getRelativePath(file), ".txt");
+          const exportData = await buildExportDataFromFile(file, targetRelativePath);
           const relativePath = getRelativePath(file);
-          const targetRelativePath = replaceExtension(relativePath, ".txt");
           const targetName = replaceExtension(file.name, ".txt");
 
           if (outputDirectory) {
             await writeFileToDirectory(outputDirectory, targetRelativePath, exportData.text, "text/plain;charset=utf-8");
+            if (exportData.multipartParts) {
+              for (const part of exportData.multipartParts) {
+                await writeFileToDirectory(outputDirectory, part.path, part.text, "text/plain;charset=utf-8");
+              }
+            }
             appendBatchLog(`OK  EXPORT  ${relativePath} -> ${targetRelativePath}`);
           } else {
             downloadTextFile(exportData.text, targetName);
+            if (exportData.multipartParts) {
+              for (const part of exportData.multipartParts) {
+                downloadTextFile(part.text, part.path.split("/").pop() || "part.txt");
+              }
+            }
             appendBatchLog(`OK  EXPORT  ${relativePath} -> download ${targetName}`);
           }
 
@@ -1460,10 +1477,10 @@ BASE64_END</div>
         let successCount = 0;
 
         for (const file of sourceFiles) {
-          const exportData = await buildExportDataFromFile(file);
           const relativePath = getRelativePath(file);
           const targetPath = joinGithubPath(basePath, replaceExtension(relativePath, ".txt"));
-          const uploadResult = await githubUpsertBatchTextFile(settings, branch, targetPath, exportData.text, `${settings.commitMessage} [batch export] ${relativePath}`);
+          const exportData = await buildExportDataFromFile(file, targetPath);
+          const uploadResult = await githubUpsertPreparedExport(settings, branch, targetPath, exportData, `${settings.commitMessage} [batch export] ${relativePath}`);
           appendBatchLog(`OK  GITHUB EXPORT  ${relativePath} -> ${targetPath}${uploadResult.multipart ? ` (${uploadResult.partCount} parts)` : ""}`);
           successCount += 1;
         }
@@ -1805,6 +1822,26 @@ ${error.message}`, "error");
       return { multipart: true, partCount: partPaths.length };
     }
 
+    async function githubUpsertPreparedExport(settings, branch, targetPath, exportPayload, commitMessage, fallbackText = "") {
+      if (!exportPayload || !exportPayload.multipartParts) {
+        return githubUpsertBatchTextFile(settings, branch, targetPath, exportPayload ? exportPayload.text : fallbackText, commitMessage);
+      }
+
+      for (let i = 0; i < exportPayload.multipartParts.length; i++) {
+        const part = exportPayload.multipartParts[i];
+        await githubUpsertTextFile(
+          settings,
+          branch,
+          part.path,
+          part.text,
+          `${commitMessage} [part ${i + 1}/${exportPayload.multipartParts.length}]`
+        );
+      }
+
+      await githubUpsertTextFile(settings, branch, targetPath, exportPayload.text, `${commitMessage} [manifest]`);
+      return { multipart: true, partCount: exportPayload.multipartParts.length };
+    }
+
     async function githubDeleteFile(settings, branch, targetPath, sha, commitMessage) {
       const body = { message: commitMessage, sha, branch };
 
@@ -1836,9 +1873,10 @@ ${error.message}`, "error");
 
       const parts = [];
       for (const partPath of manifest.parts) {
-        const partData = await githubFetchContentByPath(settings, branch, partPath, false);
-        if (!partData || partData.type !== "file") throw new Error(`GitHub multipart path is not a file: ${partPath}`);
-        parts.push(await githubDecodeFileResponse(settings, partData, partPath));
+        const normalizedPartPath = normalizeMultipartPartPath(targetPath, partPath);
+        const partData = await githubFetchContentByPath(settings, branch, normalizedPartPath, false);
+        if (!partData || partData.type !== "file") throw new Error(`GitHub multipart path is not a file: ${normalizedPartPath}`);
+        parts.push(await githubDecodeFileResponse(settings, partData, normalizedPartPath));
       }
       return parts.join("");
     }
@@ -1908,8 +1946,34 @@ ${error.message}`, "error");
 
     function formatGithubError(prefix, data) {
       const message = data && data.message ? data.message : "Unknown error";
+      const diagnostic = buildGithubErrorDiagnostic(prefix, message);
       const documentation = data && data.documentation_url ? `\nDocs: ${data.documentation_url}` : "";
-      return `${prefix}: ${message}${documentation}`;
+      return `${prefix}: ${message}${diagnostic}${documentation}`;
+    }
+
+    function buildGithubErrorDiagnostic(prefix, message) {
+      const normalizedPrefix = (prefix || "").toLowerCase();
+      const normalizedMessage = (message || "").toLowerCase();
+      if (normalizedMessage !== "not found") return "";
+
+      if (normalizedPrefix.includes("repo lookup")) {
+        return "\nPossible cause: GitHub Owner or Repo is incorrect, or the token cannot access this repository.";
+      }
+
+      if (normalizedPrefix.includes("commit lookup") || normalizedPrefix.includes("tree lookup")) {
+        return "\nPossible cause: Branch may not exist, or the token cannot read this repository tree.";
+      }
+
+      if (
+        normalizedPrefix.includes("update failed") ||
+        normalizedPrefix.includes("get content failed") ||
+        normalizedPrefix.includes("delete failed") ||
+        normalizedPrefix.includes("blob fetch failed")
+      ) {
+        return "\nPossible cause: Owner/Repo/Branch may be incorrect, or the token may not have Contents read/write access to this repository.";
+      }
+
+      return "\nPossible cause: GitHub path may be wrong, the branch may not exist, or the token may not have access to this repository.";
     }
 
     function buildExportText(data) {
@@ -1931,11 +1995,12 @@ ${error.message}`, "error");
       return lines.join("\n");
     }
 
-    function buildMultipartManifest(targetPath, fullText, partPaths) {
+    function buildMultipartManifest(targetPath, fullTextOrLength, partPaths) {
+      const fullTextLength = typeof fullTextOrLength === "number" ? fullTextOrLength : fullTextOrLength.length;
       return [
         MULTIPART_HEADER,
         `TARGET_PATH=${targetPath}`,
-        `FULL_TEXT_LENGTH=${fullText.length}`,
+        `FULL_TEXT_LENGTH=${fullTextLength}`,
         `PART_COUNT=${partPaths.length}`,
         ...partPaths.map((path, index) => `PART_${String(index + 1).padStart(3, "0")}=${path}`)
       ].join("\n");
@@ -1967,31 +2032,147 @@ ${error.message}`, "error");
       return parts;
     }
 
-    async function buildExportDataFromFile(file) {
+    async function buildExportPayloadFromBytes(data) {
+      const createdUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+      const sha256 = await calculateSHA256(data.bytes);
+      const base64Length = Math.ceil(data.bytes.length / 3) * 4;
+      const estimatedFullTextLength = estimateExportTextLength(data, base64Length);
+
+      if (estimatedFullTextLength <= GITHUB_TEXT_FILE_MAX_CHARS) {
+        const base64 = uint8ArrayToBase64Chunked(data.bytes);
+        return {
+          text: buildExportText({
+            createdUtc,
+            source: data.source,
+            sourceMode: data.sourceMode,
+            format: data.format,
+            width: data.width,
+            height: data.height,
+            byteLength: data.bytes.byteLength,
+            base64Length,
+            lineLength: data.lineLength,
+            sha256,
+            base64
+          }),
+          sha256,
+          base64Length,
+          multipartParts: null
+        };
+      }
+
+      const manifestTargetPath = data.targetPath || sanitizeFileName(`${data.source}.txt`, "Export.txt");
+      const headerText = buildExportHeaderText({
+        createdUtc,
+        source: data.source,
+        sourceMode: data.sourceMode,
+        format: data.format,
+        width: data.width,
+        height: data.height,
+        byteLength: data.bytes.byteLength,
+        base64Length,
+        lineLength: data.lineLength,
+        sha256
+      });
+
+      const parts = [];
+      let currentPart = "";
+      let base64Remainder = "";
+      let partIndex = 1;
+
+      const flushPart = () => {
+        const partPath = buildMultipartPartPath(manifestTargetPath, partIndex);
+        parts.push({ path: partPath, text: currentPart });
+        currentPart = "";
+        partIndex += 1;
+      };
+
+      const appendToParts = textChunk => {
+        let remaining = textChunk;
+        while (remaining.length) {
+          const room = GITHUB_MULTIPART_PART_CHARS - currentPart.length;
+          if (room <= 0) {
+            flushPart();
+            continue;
+          }
+          currentPart += remaining.slice(0, room);
+          remaining = remaining.slice(room);
+        }
+      };
+
+      appendToParts(`${headerText}\n${BASE64_BEGIN}\n`);
+      const safeChunkSize = LOCAL_BASE64_ENCODE_CHUNK_BYTES - (LOCAL_BASE64_ENCODE_CHUNK_BYTES % 3);
+      for (let offset = 0; offset < data.bytes.length; offset += safeChunkSize) {
+        const end = Math.min(offset + safeChunkSize, data.bytes.length);
+        let encoded = base64Remainder + uint8ArrayToBase64(data.bytes.subarray(offset, end));
+        while (encoded.length >= data.lineLength) {
+          appendToParts(`${encoded.slice(0, data.lineLength)}\n`);
+          encoded = encoded.slice(data.lineLength);
+        }
+        base64Remainder = encoded;
+      }
+      if (base64Remainder) appendToParts(`${base64Remainder}\n`);
+      appendToParts(`${BASE64_END}`);
+      if (currentPart.length || !parts.length) flushPart();
+
+      const manifestText = buildMultipartManifest(manifestTargetPath, estimatedFullTextLength, parts.map(part => part.path));
+
+      return {
+        text: manifestText,
+        sha256,
+        base64Length,
+        multipartParts: parts
+      };
+    }
+
+    function buildExportHeaderText(data) {
+      return [
+        HEADER,
+        `CREATED_UTC=${data.createdUtc}`,
+        `SOURCE_MODE=${data.sourceMode || "RawImageFileEncode"}`,
+        `SOURCE=${data.source}`,
+        `FORMAT=${data.format}`,
+        `WIDTH=${data.width || 0}`,
+        `HEIGHT=${data.height || 0}`,
+        `BYTE_LENGTH=${data.byteLength}`,
+        `BASE64_LENGTH=${data.base64Length}`,
+        `LINE_LENGTH=${data.lineLength}`,
+        `SHA256=${data.sha256}`
+      ].join("\n");
+    }
+
+    function estimateExportTextLength(data, base64Length) {
+      const headerLength = buildExportHeaderText({
+        createdUtc: "0000-00-00T00:00:00Z",
+        sourceMode: data.sourceMode,
+        source: data.source,
+        format: data.format,
+        width: data.width,
+        height: data.height,
+        byteLength: data.bytes.byteLength,
+        base64Length,
+        lineLength: data.lineLength,
+        sha256: "0".repeat(64)
+      }).length + `\n${BASE64_BEGIN}\n`.length + `\n${BASE64_END}`.length;
+      return headerLength + base64Length + Math.ceil(base64Length / data.lineLength);
+    }
+
+    async function buildExportDataFromFile(file, targetPath) {
       const modeConfig = getCurrentModeConfig();
       const lineLength = Math.max(256, parseInt(lineLengthInput.value || "8000", 10));
       const arrayBuffer = await file.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
-      const base64 = uint8ArrayToBase64(bytes);
-      const sha256 = await calculateSHA256(bytes);
       const extension = getExtension(file.name).toUpperCase() || "UNKNOWN";
       const assetSize = modeConfig.previewKind === "none" ? { width: 0, height: 0 } : await getAssetDimensionsFromFile(file, modeConfig.previewKind);
-      const createdUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-      const text = buildExportText({
-        createdUtc,
+      return buildExportPayloadFromBytes({
+        bytes,
         source: getRelativePath(file),
         sourceMode: modeConfig.sourceMode,
         format: getExportFormatForCurrentMode(extension),
         width: assetSize.width,
         height: assetSize.height,
-        byteLength: bytes.byteLength,
-        base64Length: base64.length,
         lineLength,
-        sha256,
-        base64
+        targetPath
       });
-
-      return { text, bytes, sha256, extension, assetSize };
     }
 
     function parseBase64TextContent(content) {
@@ -2085,6 +2266,19 @@ ${error.message}`, "error");
         binary += String.fromCharCode.apply(null, chunk);
       }
       return btoa(binary);
+    }
+
+    function uint8ArrayToBase64Chunked(bytes) {
+      if (!bytes || !bytes.length) return "";
+      if (bytes.length <= LOCAL_BASE64_ENCODE_CHUNK_BYTES) return uint8ArrayToBase64(bytes);
+
+      const parts = [];
+      const safeChunkSize = LOCAL_BASE64_ENCODE_CHUNK_BYTES - (LOCAL_BASE64_ENCODE_CHUNK_BYTES % 3);
+      for (let offset = 0; offset < bytes.length; offset += safeChunkSize) {
+        const end = Math.min(offset + safeChunkSize, bytes.length);
+        parts.push(uint8ArrayToBase64(bytes.subarray(offset, end)));
+      }
+      return parts.join("");
     }
 
     function base64ToUint8Array(base64) {
@@ -2537,6 +2731,7 @@ ${error.message}`, "error");
       exportPreview.innerHTML = "No preview";
       exportMeta.textContent = config.emptyExportMeta;
       exportTextOutput.value = "";
+      currentExportPayload = null;
       downloadTxtLink.classList.add("disabled");
       downloadTxtLink.href = "#";
       copyExportTextButton.disabled = true;
@@ -2582,6 +2777,15 @@ ${error.message}`, "error");
       const cleanPartPath = partPath.replace(/^\/+/, "");
       if (cleanPartPath.includes("/")) return cleanPartPath;
       const segments = manifestRelativePath.split("/");
+      segments.pop();
+      return segments.length ? `${segments.join("/")}/${cleanPartPath}` : cleanPartPath;
+    }
+
+    function normalizeMultipartPartPath(manifestPath, partPath) {
+      if (!partPath) return partPath;
+      const cleanPartPath = partPath.replace(/^\/+/, "");
+      if (cleanPartPath.includes("/")) return cleanPartPath;
+      const segments = manifestPath.split("/");
       segments.pop();
       return segments.length ? `${segments.join("/")}/${cleanPartPath}` : cleanPartPath;
     }
