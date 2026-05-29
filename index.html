@@ -538,6 +538,7 @@
               <option value="video">Video</option>
               <option value="max">MAX</option>
               <option value="archive">Archive</option>
+              <option value="txt">TXT</option>
             </select>
           </div>
         </div>
@@ -1060,6 +1061,56 @@ BASE64_END</div>
         downloadRestoredLabel: "Download Archive",
         decodeButtonLabel: "Import Base64 Text To Archive",
         sourceMode: "RawArchiveFileEncode"
+      },
+      txt: {
+        title: "TXT Transfer",
+        workflowNotice: "建議流程：txt → 直接上傳或批量同步 → 另一端直接取回 txt。TXT 模式不做 Base64 轉換，會直接處理原始文字內容；過大的 txt 仍可自動分片。",
+        heroDescription: "純前端工具。TXT 模式會直接處理原始文字內容，不再做 Base64 編碼。GitHub 同步功能仍然呼叫 GitHub REST API；大 txt 會自動分片並在匯入端重組。",
+        githubSettingsDescription: "指定要讀寫的 Repo 與檔案路徑。TXT 模式與其他模式各自使用獨立的 File Path / Batch Base Path，避免混用。",
+        githubPathHint: "Repo 內的 txt 檔路徑，例如 transfers/RawText_Export.txt。",
+        githubBatchPathHint: "TXT 批量模式用的 repo 資料夾路徑，例如 txt-batch-transfers。上傳時會在此路徑下保留子資料夾結構；大 txt 會自動分片。",
+        defaultGithubPath: "RawText_Export.txt",
+        defaultGithubBatchPath: "txt-batch-transfers",
+        defaultCommitMessage: "Update txt transfer file",
+        exportSectionTitle: "Export：TXT 直通處理",
+        exportSectionDescription: "選擇 `.txt` 後，工具會直接保留原始文字內容，不再做 Base64 轉換。若內容過大，可在本地與 GitHub 流程中自動分片。",
+        exportFileLabel: "Source TXT File",
+        exportFileHint: "選擇要直接處理的 `.txt`。TXT 模式不做預覽，也不重新轉碼。",
+        exportAccept: ".txt,text/plain",
+        exportFileNameLabel: "Output Txt File Name",
+        exportFileNameHint: "下載或同步時使用的檔名。",
+        defaultExportTxtName: "RawText_Export.txt",
+        exportMetadataTitle: "Export Metadata",
+        exportTextOutputLabel: "Generated Txt Content",
+        exportTextOutputHint: "這裡會顯示直接處理後的 txt 內容；若過大而需分片，這裡顯示 manifest。",
+        importSectionTitle: "Import：TXT 直接還原",
+        importSectionDescription: "可匯入 txt 檔、直接貼上整份 txt 內容，或從 GitHub 指定檔案讀取，再直接還原成 `.txt`。",
+        importTxtFileLabel: "TXT File",
+        importTxtFileHint: "選擇要直接還原的 txt，或選擇由 TXT 模式分片輸出的 manifest。",
+        importTextInputLabel: "Full Txt Content",
+        importTextInputHint: "直接貼上完整 txt 內容。",
+        importTextPlaceholder: "Paste full txt content here...",
+        restoredFileNameLabel: "Restored TXT File Name",
+        restoredFileNameHint: "下載還原文字檔時使用的檔名。副檔名應為 `.txt`。",
+        defaultRestoredName: "RawText_Restored.txt",
+        importMetadataTitle: "Import Metadata",
+        batchSectionTitle: "Batch：TXT 資料夾批量匯出 / 匯入",
+        batchSectionDescription: "可一次選整個資料夾處理多個 `.txt`。TXT 模式不做 Base64 轉換，會直接處理原始文字內容；大 txt 會自動分片並在匯入端重組。",
+        batchExportFolderLabel: "Source TXT Folder",
+        batchExportFolderHint: "選擇包含 `.txt` 檔案的資料夾。子資料夾也會一起掃描。",
+        batchExportAccept: ".txt,text/plain",
+        batchImportFolderLabel: "Source TXT Folder",
+        batchImportFolderHint: "選擇包含 `.txt` 或分片 manifest 的資料夾。子資料夾也會一起掃描。",
+        batchExtensions: [".txt"],
+        previewKind: "none",
+        previewDisabledText: "Preview disabled in TXT mode",
+        emptyExportMeta: "No txt loaded.",
+        emptyImportMeta: "No txt imported.",
+        importSuccessText: "Import succeeded. You can now download the restored txt.",
+        downloadRestoredLabel: "Download TXT",
+        decodeButtonLabel: "Import TXT",
+        sourceMode: "RawTextPassthrough",
+        passThroughText: true
       }
     };
 
@@ -1233,6 +1284,31 @@ BASE64_END</div>
         const outputName = sanitizeFileName(exportFileNameInput.value || modeConfig.defaultExportTxtName, modeConfig.defaultExportTxtName);
         exportFileNameInput.value = outputName;
 
+        if (modeConfig.passThroughText) {
+          const rawText = await file.text();
+          const exportPayload = await buildRawTextPayload(rawText, outputName);
+          currentExportPayload = exportPayload;
+          exportTextOutput.value = exportPayload.text;
+          exportMeta.textContent = [
+            `File: ${file.name}`,
+            "Format: TXT",
+            `MIME: ${file.type || "text/plain"}`,
+            `Preview: ${modeConfig.previewDisabledText}`,
+            `${getModeBytesLabel()}: ${new TextEncoder().encode(rawText).byteLength}`,
+            `Text Length: ${rawText.length}`,
+            exportPayload.multipartParts ? `Local Multipart: ${exportPayload.multipartParts.length} parts` : null,
+            exportPayload.multipartParts ? `Part Size Limit: ${getMultipartPartSizeKb()} KB` : null,
+            `SHA256: ${exportPayload.sha256}`
+          ].filter(Boolean).join("\n");
+
+          setDownloadLink(downloadTxtLink, exportPayload.text, "text/plain;charset=utf-8", outputName, "Download Txt");
+          copyExportTextButton.disabled = false;
+          setStatus(exportStatus, exportPayload.multipartParts
+            ? `TXT export succeeded.\nLarge file was split locally into ${exportPayload.multipartParts.length} part files.`
+            : "TXT export succeeded.", "success");
+          return exportPayload.text;
+        }
+
         const arrayBuffer = await file.arrayBuffer();
         const bytes = new Uint8Array(arrayBuffer);
         const extension = getExtension(file.name).toUpperCase() || "UNKNOWN";
@@ -1329,6 +1405,10 @@ BASE64_END</div>
     async function decodeContentToImage(content, inputDescription) {
       if (!content || !content.trim()) throw new Error("Input text is empty.");
 
+      if (getCurrentModeConfig().passThroughText) {
+        return importRawTextContent(content, inputDescription);
+      }
+
       const parsed = parseBase64TextContent(content);
       if (!parsed.base64Text) throw new Error("No Base64 content found. Provide full exported text or plain Base64.");
 
@@ -1377,6 +1457,37 @@ BASE64_END</div>
       importMeta.textContent = lastImportMetadata;
       copyImportedMetaButton.disabled = false;
       setStatus(importStatus, getImportSuccessTextForFormat(parsed.format), "success");
+    }
+
+    async function importRawTextContent(content, inputDescription) {
+      const bytes = new TextEncoder().encode(content);
+      const actualSha256 = await calculateSHA256(bytes);
+      const restoredName = sanitizeFileName(
+        restoredFileNameInput.value || getCurrentModeConfig().defaultRestoredName,
+        getCurrentModeConfig().defaultRestoredName
+      );
+      restoredFileNameInput.value = restoredName;
+
+      if (importImageObjectUrl) URL.revokeObjectURL(importImageObjectUrl);
+      importImageObjectUrl = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
+
+      downloadImageLink.href = importImageObjectUrl;
+      downloadImageLink.download = restoredName;
+      downloadImageLink.textContent = getCurrentModeConfig().downloadRestoredLabel;
+      downloadImageLink.classList.remove("disabled");
+
+      importPreview.textContent = getCurrentModeConfig().previewDisabledText;
+      lastImportMetadata = [
+        `Input: ${inputDescription}`,
+        "Format: TXT",
+        `Text Length: ${content.length}`,
+        `${getModeBytesLabel()}: ${bytes.byteLength}`,
+        `SHA256: ${actualSha256}`
+      ].join("\n");
+
+      importMeta.textContent = lastImportMetadata;
+      copyImportedMetaButton.disabled = false;
+      setStatus(importStatus, getCurrentModeConfig().importSuccessText, "success");
     }
 
     async function getImportContent() {
@@ -1453,6 +1564,24 @@ BASE64_END</div>
 
         for (const entry of normalizedFiles) {
           const content = await resolveLocalBatchImportText(entry);
+          if (getCurrentModeConfig().passThroughText) {
+            const textSha256 = await calculateTextSHA256(content);
+            const relativePath = entry.relativePath;
+            const targetRelativePath = relativePath;
+            const targetName = entry.file.name;
+
+            if (outputDirectory) {
+              await writeFileToDirectory(outputDirectory, targetRelativePath, content, "text/plain;charset=utf-8");
+              appendBatchLog(`OK  IMPORT  ${relativePath} -> ${targetRelativePath} (${textSha256})`);
+            } else {
+              downloadTextFile(content, targetName);
+              appendBatchLog(`OK  IMPORT  ${relativePath} -> download ${targetName} (${textSha256})`);
+            }
+
+            successCount += 1;
+            continue;
+          }
+
           const decoded = await decodeTextContentToBinary(content, "Batch Txt: " + entry.relativePath);
           const relativePath = entry.relativePath;
           const targetRelativePath = replaceExtension(relativePath, "." + decoded.outputExtension);
@@ -1524,6 +1653,30 @@ BASE64_END</div>
 
         for (const txtPath of txtPaths) {
           const text = await githubFetchTextFile(settings, branch, txtPath);
+          if (getCurrentModeConfig().passThroughText) {
+            const textSha256 = await calculateTextSHA256(text);
+            const relativePath = stripGithubBasePath(txtPath, basePath);
+            const targetRelativePath = relativePath;
+            const targetName = relativePath.split("/").pop() || "restored.txt";
+
+            if (outputDirectory) {
+              try {
+                await writeFileToDirectory(outputDirectory, targetRelativePath, text, "text/plain;charset=utf-8");
+                appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> ${targetRelativePath} (${textSha256})`);
+              } catch (writeError) {
+                downloadTextFile(text, targetName);
+                appendBatchLog(`WARN GITHUB IMPORT  ${txtPath} -> write failed for ${targetRelativePath}; downloaded ${targetName} instead (${textSha256})`);
+                appendBatchLog(`WARN DETAILS ${formatNativeFileError(writeError)}`);
+              }
+            } else {
+              downloadTextFile(text, targetName);
+              appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> download ${targetName} (${textSha256})`);
+            }
+
+            successCount += 1;
+            continue;
+          }
+
           const decoded = await decodeTextContentToBinary(text, "GitHub Batch Txt: " + txtPath);
           const relativePath = stripGithubBasePath(txtPath, basePath);
           const targetRelativePath = replaceExtension(relativePath, "." + decoded.outputExtension);
@@ -1652,6 +1805,10 @@ BASE64_END</div>
             archive: {
               path: currentMode === "archive" ? githubPath.value.trim() : existingPaths.archive.path,
               batchPath: currentMode === "archive" ? githubBatchPath.value.trim() : existingPaths.archive.batchPath
+            },
+            txt: {
+              path: currentMode === "txt" ? githubPath.value.trim() : existingPaths.txt.path,
+              batchPath: currentMode === "txt" ? githubBatchPath.value.trim() : existingPaths.txt.batchPath
             }
           },
           multipartPartSizeKb: getMultipartPartSizeKb(),
@@ -2179,6 +2336,10 @@ ${error.message}`, "error");
 
     async function buildExportDataFromFile(file, targetPath) {
       const modeConfig = getCurrentModeConfig();
+      if (modeConfig.passThroughText) {
+        return buildRawTextPayload(await file.text(), targetPath);
+      }
+
       const lineLength = Math.max(256, parseInt(lineLengthInput.value || "8000", 10));
       const arrayBuffer = await file.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
@@ -2194,6 +2355,33 @@ ${error.message}`, "error");
         lineLength,
         targetPath
       });
+    }
+
+    async function buildRawTextPayload(text, targetPath) {
+      const sha256 = await calculateTextSHA256(text);
+      if (text.length <= GITHUB_TEXT_FILE_MAX_CHARS) {
+        return {
+          text,
+          sha256,
+          base64Length: 0,
+          multipartParts: null,
+          isRawTextPassthrough: true
+        };
+      }
+
+      const partContents = splitTextForGithubMultipart(text);
+      const multipartParts = partContents.map((partText, index) => ({
+        path: buildMultipartPartPath(targetPath, index + 1),
+        text: partText
+      }));
+
+      return {
+        text: buildMultipartManifest(targetPath, text, multipartParts.map(part => part.path)),
+        sha256,
+        base64Length: 0,
+        multipartParts,
+        isRawTextPassthrough: true
+      };
     }
 
     function parseBase64TextContent(content) {
@@ -2324,6 +2512,10 @@ ${error.message}`, "error");
       const hashBuffer = await crypto.subtle.digest("SHA-256", bytes);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    async function calculateTextSHA256(text) {
+      return calculateSHA256(new TextEncoder().encode(text));
     }
 
     function renderFilePreview(file, container, modeConfig) {
@@ -2562,7 +2754,8 @@ ${error.message}`, "error");
         fbx: { path: MODE_CONFIG.fbx.defaultGithubPath, batchPath: MODE_CONFIG.fbx.defaultGithubBatchPath },
         video: { path: MODE_CONFIG.video.defaultGithubPath, batchPath: MODE_CONFIG.video.defaultGithubBatchPath },
         max: { path: MODE_CONFIG.max.defaultGithubPath, batchPath: MODE_CONFIG.max.defaultGithubBatchPath },
-        archive: { path: MODE_CONFIG.archive.defaultGithubPath, batchPath: MODE_CONFIG.archive.defaultGithubBatchPath }
+        archive: { path: MODE_CONFIG.archive.defaultGithubPath, batchPath: MODE_CONFIG.archive.defaultGithubBatchPath },
+        txt: { path: MODE_CONFIG.txt.defaultGithubPath, batchPath: MODE_CONFIG.txt.defaultGithubBatchPath }
       };
       if (!raw) return defaults;
       if (raw.paths) {
@@ -2586,6 +2779,10 @@ ${error.message}`, "error");
           archive: {
             path: raw.paths.archive && raw.paths.archive.path ? raw.paths.archive.path : defaults.archive.path,
             batchPath: raw.paths.archive && raw.paths.archive.batchPath ? raw.paths.archive.batchPath : defaults.archive.batchPath
+          },
+          txt: {
+            path: raw.paths.txt && raw.paths.txt.path ? raw.paths.txt.path : defaults.txt.path,
+            batchPath: raw.paths.txt && raw.paths.txt.batchPath ? raw.paths.txt.batchPath : defaults.txt.batchPath
           }
         };
       }
@@ -2597,7 +2794,8 @@ ${error.message}`, "error");
         fbx: defaults.fbx,
         video: defaults.video,
         max: defaults.max,
-        archive: defaults.archive
+        archive: defaults.archive,
+        txt: defaults.txt
       };
     }
 
@@ -2860,10 +3058,16 @@ ${error.message}`, "error");
     }
 
     function getCurrentModeLabel() {
-      return currentMode === "video" ? "video" : currentMode === "fbx" ? "FBX" : currentMode === "max" ? "MAX" : currentMode === "archive" ? "archive" : "image";
+      return currentMode === "video" ? "video"
+        : currentMode === "fbx" ? "FBX"
+        : currentMode === "max" ? "MAX"
+        : currentMode === "archive" ? "archive"
+        : currentMode === "txt" ? "text"
+        : "image";
     }
 
     function getExportFormatForCurrentMode(extension) {
+      if (currentMode === "txt") return "TXT";
       if (currentMode === "fbx") return "FBX";
       if (currentMode === "max") return "MAX";
       if (currentMode === "archive") return normalizeArchiveFormat(extension);
@@ -2874,6 +3078,7 @@ ${error.message}`, "error");
       if (!modeConfig) return "Bytes";
       if (modeConfig === MODE_CONFIG.video || modeConfig.title === MODE_CONFIG.video.title) return "Video Bytes";
       if (modeConfig === MODE_CONFIG.archive || modeConfig.title === MODE_CONFIG.archive.title) return "Archive Bytes";
+      if (modeConfig === MODE_CONFIG.txt || modeConfig.title === MODE_CONFIG.txt.title) return "Text Bytes";
       if (modeConfig === MODE_CONFIG.max || modeConfig.title === MODE_CONFIG.max.title) return "File Bytes";
       if (modeConfig === MODE_CONFIG.fbx || modeConfig.title === MODE_CONFIG.fbx.title) return "File Bytes";
       return "Image Bytes";
@@ -2884,6 +3089,7 @@ ${error.message}`, "error");
     }
 
     function getBytesLabelForFormat(format) {
+      if (isTextFormat(format)) return "Text Bytes";
       if (isArchiveFormat(format)) return "Archive Bytes";
       if (isVideoFormat(format)) return "Video Bytes";
       if (isMaxFormat(format)) return "File Bytes";
@@ -2892,6 +3098,7 @@ ${error.message}`, "error");
     }
 
     function getPreviewKindForFormat(format) {
+      if (isTextFormat(format)) return "none";
       if (isArchiveFormat(format)) return "none";
       if (isVideoFormat(format)) return "video";
       if (isMaxFormat(format)) return "none";
@@ -2900,6 +3107,7 @@ ${error.message}`, "error");
     }
 
     function getPreviewDisabledTextForFormat(format) {
+      if (isTextFormat(format)) return MODE_CONFIG.txt.previewDisabledText;
       if (isArchiveFormat(format)) return MODE_CONFIG.archive.previewDisabledText;
       if (isMaxFormat(format)) return MODE_CONFIG.max.previewDisabledText;
       if (isFbxFormat(format)) return MODE_CONFIG.fbx.previewDisabledText;
@@ -2908,6 +3116,7 @@ ${error.message}`, "error");
     }
 
     function getDownloadLabelForFormat(format) {
+      if (isTextFormat(format)) return MODE_CONFIG.txt.downloadRestoredLabel;
       if (isArchiveFormat(format)) return MODE_CONFIG.archive.downloadRestoredLabel;
       if (isMaxFormat(format)) return MODE_CONFIG.max.downloadRestoredLabel;
       if (isVideoFormat(format)) return MODE_CONFIG.video.downloadRestoredLabel;
@@ -2916,6 +3125,7 @@ ${error.message}`, "error");
     }
 
     function getImportSuccessTextForFormat(format) {
+      if (isTextFormat(format)) return MODE_CONFIG.txt.importSuccessText;
       if (isArchiveFormat(format)) return MODE_CONFIG.archive.importSuccessText;
       if (isMaxFormat(format)) return MODE_CONFIG.max.importSuccessText;
       if (isVideoFormat(format)) return MODE_CONFIG.video.importSuccessText;
@@ -2924,6 +3134,7 @@ ${error.message}`, "error");
     }
 
     function suggestedRestoredName(format) {
+      if (isTextFormat(format)) return MODE_CONFIG.txt.defaultRestoredName;
       if (isArchiveFormat(format)) return `ArchiveBase64_Restored.${normalizeOutputExtension(format) || "zip"}`;
       if (isMaxFormat(format)) return MODE_CONFIG.max.defaultRestoredName;
       if (isVideoFormat(format)) return `VideoBase64_Restored.${normalizeOutputExtension(format) || "mp4"}`;
@@ -2936,6 +3147,7 @@ ${error.message}`, "error");
     function getMimeTypeFromFormat(format, bytes) {
       const upper = (format || "").toUpperCase();
       switch (upper) {
+        case "TXT": return "text/plain;charset=utf-8";
         case "MP4":
         case "M4V": return "video/mp4";
         case "MOV": return "video/quicktime";
@@ -2967,6 +3179,10 @@ ${error.message}`, "error");
 
     function isFbxFormat(format) {
       return (format || "").toUpperCase() === "FBX";
+    }
+
+    function isTextFormat(format) {
+      return (format || "").toUpperCase() === "TXT";
     }
 
     function isMaxFormat(format) {
@@ -3003,6 +3219,7 @@ ${error.message}`, "error");
         case "TGZ": return "tgz";
         case "BZ2": return "bz2";
         case "XZ": return "xz";
+        case "TXT": return "txt";
         case "FBX": return "fbx";
         case "MAX": return "max";
         case "MP4": return "mp4";
