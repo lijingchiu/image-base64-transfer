@@ -1500,9 +1500,9 @@ BASE64_END</div>
     }
 
     async function batchExportFolderToTexts() {
-      const sourceFiles = collectBatchFiles(batchExportFolder.files, getCurrentModeConfig().batchExtensions);
+      const sourceFiles = collectBatchFiles(batchExportFolder.files, getBatchExportExtensions());
       if (!sourceFiles.length) {
-        setStatus(batchStatus, `Batch export failed:\nNo ${getCurrentModeConfig().batchExtensions.join(" / ")} files found in selected folder.`, "error");
+        setStatus(batchStatus, `Batch export failed:\nNo supported files found in selected folder.`, "error");
         return;
       }
 
@@ -1564,7 +1564,7 @@ BASE64_END</div>
 
         for (const entry of normalizedFiles) {
           const content = await resolveLocalBatchImportText(entry);
-          if (getCurrentModeConfig().passThroughText) {
+          if (shouldTreatBatchImportAsRawText(content)) {
             const textSha256 = await calculateTextSHA256(content);
             const relativePath = entry.relativePath;
             const targetRelativePath = relativePath;
@@ -1606,9 +1606,9 @@ BASE64_END</div>
     }
 
     async function batchExportFolderToGithub() {
-      const sourceFiles = collectBatchFiles(batchExportFolder.files, getCurrentModeConfig().batchExtensions);
+      const sourceFiles = collectBatchFiles(batchExportFolder.files, getBatchExportExtensions());
       if (!sourceFiles.length) {
-        setStatus(batchStatus, `Batch GitHub export failed:\nNo ${getCurrentModeConfig().batchExtensions.join(" / ")} files found in selected folder.`, "error");
+        setStatus(batchStatus, `Batch GitHub export failed:\nNo supported files found in selected folder.`, "error");
         return;
       }
 
@@ -1653,7 +1653,7 @@ BASE64_END</div>
 
         for (const txtPath of txtPaths) {
           const text = await githubFetchTextFile(settings, branch, txtPath);
-          if (getCurrentModeConfig().passThroughText) {
+          if (shouldTreatBatchImportAsRawText(text)) {
             const textSha256 = await calculateTextSHA256(text);
             const relativePath = stripGithubBasePath(txtPath, basePath);
             const targetRelativePath = relativePath;
@@ -2336,7 +2336,7 @@ ${error.message}`, "error");
 
     async function buildExportDataFromFile(file, targetPath) {
       const modeConfig = getCurrentModeConfig();
-      if (modeConfig.passThroughText) {
+      if (modeConfig.passThroughText || getExtension(file.name).toLowerCase() === "txt") {
         return buildRawTextPayload(await file.text(), targetPath);
       }
 
@@ -2467,6 +2467,18 @@ ${error.message}`, "error");
 
     function stripPlainBase64Text(content) { return content.replace(/\s+/g, ""); }
 
+    function isLikelyBase64PayloadText(content) {
+      if (!content || !content.trim()) return false;
+      if (content.includes(HEADER) || content.includes(BASE64_BEGIN)) return true;
+      const compact = content.replace(/\s+/g, "");
+      if (!compact || compact.length % 4 !== 0) return false;
+      return /^[A-Za-z0-9+/=]+$/.test(compact);
+    }
+
+    function shouldTreatBatchImportAsRawText(content) {
+      return getCurrentModeConfig().passThroughText || !isLikelyBase64PayloadText(content);
+    }
+
     function uint8ArrayToBase64(bytes) {
       const chunkSize = 0x8000;
       let binary = "";
@@ -2577,6 +2589,13 @@ ${error.message}`, "error");
         const ext = "." + getExtension(file.name).toLowerCase();
         return allowedExtensions.includes(ext);
       }).sort((a, b) => getRelativePath(a).localeCompare(getRelativePath(b)));
+    }
+
+    function getBatchExportExtensions() {
+      const config = getCurrentModeConfig();
+      return config.passThroughText
+        ? config.batchExtensions
+        : Array.from(new Set([...config.batchExtensions, ".txt"]));
     }
 
     function getImageSizeFromFile(file) {
@@ -2706,7 +2725,7 @@ ${error.message}`, "error");
       batchSectionDescription.textContent = config.batchSectionDescription;
       batchExportFolderLabel.textContent = config.batchExportFolderLabel;
       batchExportFolderHint.textContent = config.batchExportFolderHint;
-      batchExportFolder.setAttribute("accept", config.batchExportAccept);
+      batchExportFolder.setAttribute("accept", config.passThroughText ? config.batchExportAccept : `${config.batchExportAccept},.txt,text/plain`);
       batchImportFolderLabel.textContent = config.batchImportFolderLabel;
       batchImportFolderHint.textContent = config.batchImportFolderHint;
       decodeButton.textContent = config.decodeButtonLabel;
