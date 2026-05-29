@@ -591,6 +591,14 @@
 
       <div class="row">
         <div>
+          <label for="multipartPartSizeKb">Multipart Part Size (KB)<span class="hint">控制每個分片 txt 的目標大小。調大可減少分片數，但 GitHub API 太大的單檔可能較不穩。489 KB 是原本預設值。</span></label>
+          <input id="multipartPartSizeKb" type="number" min="128" step="1" value="489" />
+        </div>
+        <div></div>
+      </div>
+
+      <div class="row">
+        <div>
           <label for="githubToken">Fine-grained Token / PAT<span class="hint">需要 Contents: Read and write 權限。私有 Repo 也需要對該 Repo 有權限。</span></label>
           <input id="githubToken" type="password" placeholder="github_pat_..." autocomplete="off" />
         </div>
@@ -644,7 +652,7 @@
         <label for="exportFile"><span id="exportFileLabel">Source Image File</span><span class="hint" id="exportFileHint">選擇要轉成文字的圖片。預覽取決於瀏覽器支援，但 Base64 轉換會保留原始檔案 bytes。</span></label>
         <input id="exportFile" type="file" accept="image/*,.tga,.exr" />
 
-        <div class="row">
+        <div class="row-3">
           <div>
             <label for="lineLength">Base64 Line Length<span class="hint">每行 Base64 字元數。文字傳輸環境容易斷行時，建議維持 8000 或更小。</span></label>
             <input id="lineLength" type="number" min="256" step="1" value="8000" />
@@ -652,6 +660,10 @@
           <div>
             <label for="exportFileName"><span id="exportFileNameLabel">Output Txt File Name</span><span class="hint" id="exportFileNameHint">下載 txt 時使用的檔名。</span></label>
             <input id="exportFileName" type="text" value="ImageBase64_Export.txt" />
+          </div>
+          <div>
+            <label for="lineLengthPartSizeMirror">Multipart Part Size (KB)<span class="hint">與 GitHub Settings 共用。用來控制本地與 GitHub 匯出的每個 part 檔案大小。</span></label>
+            <input id="lineLengthPartSizeMirror" type="number" min="128" step="1" value="489" />
           </div>
         </div>
 
@@ -798,7 +810,6 @@ BASE64_END</div>
     const BASE64_END = "BASE64_END";
     const MULTIPART_HEADER = "UNITY_IMAGE_BASE64_TRANSFER_MULTIPART_V1";
     const GITHUB_TEXT_FILE_MAX_CHARS = 700000;
-    const GITHUB_MULTIPART_PART_CHARS = 500000;
     const LOCAL_BASE64_ENCODE_CHUNK_BYTES = 3 * 1024 * 1024;
     const THEME_STORAGE_KEY = "imageBase64Transfer.theme.v1";
     const MODE_STORAGE_KEY = "imageBase64Transfer.mode.v1";
@@ -1057,6 +1068,7 @@ BASE64_END</div>
     const githubBranch = document.getElementById("githubBranch");
     const githubPath = document.getElementById("githubPath");
     const githubBatchPath = document.getElementById("githubBatchPath");
+    const multipartPartSizeKbInput = document.getElementById("multipartPartSizeKb");
     const githubToken = document.getElementById("githubToken");
     const githubCommitMessage = document.getElementById("githubCommitMessage");
     const githubAuthorName = document.getElementById("githubAuthorName");
@@ -1070,6 +1082,7 @@ BASE64_END</div>
 
     const exportFile = document.getElementById("exportFile");
     const lineLengthInput = document.getElementById("lineLength");
+    const lineLengthPartSizeMirrorInput = document.getElementById("lineLengthPartSizeMirror");
     const exportFileNameInput = document.getElementById("exportFileName");
     const encodeButton = document.getElementById("encodeButton");
     const exportToGithubButton = document.getElementById("exportToGithubButton");
@@ -1161,6 +1174,8 @@ BASE64_END</div>
     saveGithubSettingsButton.addEventListener("click", () => saveGithubSettingsToStorage(true));
     loadGithubSettingsButton.addEventListener("click", () => loadGithubSettingsFromStorage(true));
     clearGithubSettingsButton.addEventListener("click", clearGithubSettingsFromStorage);
+    multipartPartSizeKbInput.addEventListener("input", () => syncMultipartPartSizeInputs(multipartPartSizeKbInput));
+    lineLengthPartSizeMirrorInput.addEventListener("input", () => syncMultipartPartSizeInputs(lineLengthPartSizeMirrorInput));
     themeSelect.addEventListener("change", () => setThemePreference(themeSelect.value));
     modeSelect.addEventListener("change", () => setCurrentMode(modeSelect.value));
     systemThemeMedia.addEventListener("change", () => {
@@ -1244,6 +1259,7 @@ BASE64_END</div>
           `${getModeBytesLabel()}: ${bytes.byteLength}`,
           `Base64 Length: ${exportPayload.base64Length}`,
           exportPayload.multipartParts ? `Local Multipart: ${exportPayload.multipartParts.length} parts` : null,
+          exportPayload.multipartParts ? `Part Size Limit: ${getMultipartPartSizeKb()} KB` : null,
           `SHA256: ${exportPayload.sha256}`
         ].filter(Boolean).join("\n");
 
@@ -1638,6 +1654,7 @@ BASE64_END</div>
               batchPath: currentMode === "archive" ? githubBatchPath.value.trim() : existingPaths.archive.batchPath
             }
           },
+          multipartPartSizeKb: getMultipartPartSizeKb(),
           commitMessage: githubCommitMessage.value.trim(),
           authorName: githubAuthorName.value.trim(),
           authorEmail: githubAuthorEmail.value.trim(),
@@ -1672,6 +1689,7 @@ ${error.message}`, "error");
         githubOwner.value = settings.owner || "";
         githubRepo.value = settings.repo || "";
         githubBranch.value = settings.branch || "main";
+        syncMultipartPartSizeInputs(parseInt(settings.multipartPartSizeKb || "489", 10));
         githubCommitMessage.value = settings.commitMessage || getCurrentModeConfig().defaultCommitMessage;
         githubAuthorName.value = settings.authorName || "";
         githubAuthorEmail.value = settings.authorEmail || "";
@@ -1699,6 +1717,7 @@ ${error.message}`, "error");
       githubOwner.value = "";
       githubRepo.value = "";
       githubBranch.value = "main";
+      syncMultipartPartSizeInputs(489);
       githubToken.value = "";
       githubCommitMessage.value = getCurrentModeConfig().defaultCommitMessage;
       githubAuthorName.value = "";
@@ -2025,9 +2044,10 @@ ${error.message}`, "error");
     }
 
     function splitTextForGithubMultipart(text) {
+      const multipartPartCharLimit = getMultipartPartCharLimit();
       const parts = [];
-      for (let i = 0; i < text.length; i += GITHUB_MULTIPART_PART_CHARS) {
-        parts.push(text.slice(i, i + GITHUB_MULTIPART_PART_CHARS));
+      for (let i = 0; i < text.length; i += multipartPartCharLimit) {
+        parts.push(text.slice(i, i + multipartPartCharLimit));
       }
       return parts;
     }
@@ -2061,6 +2081,7 @@ ${error.message}`, "error");
       }
 
       const manifestTargetPath = data.targetPath || sanitizeFileName(`${data.source}.txt`, "Export.txt");
+      const multipartPartCharLimit = getMultipartPartCharLimit();
       const headerText = buildExportHeaderText({
         createdUtc,
         source: data.source,
@@ -2089,7 +2110,7 @@ ${error.message}`, "error");
       const appendToParts = textChunk => {
         let remaining = textChunk;
         while (remaining.length) {
-          const room = GITHUB_MULTIPART_PART_CHARS - currentPart.length;
+          const room = multipartPartCharLimit - currentPart.length;
           if (room <= 0) {
             flushPart();
             continue;
@@ -2688,6 +2709,24 @@ ${error.message}`, "error");
     function setThemePreference(theme) {
       localStorage.setItem(THEME_STORAGE_KEY, theme);
       applyTheme(theme);
+    }
+
+    function getMultipartPartSizeKb() {
+      const raw = parseInt(multipartPartSizeKbInput.value || lineLengthPartSizeMirrorInput.value || "489", 10);
+      const normalized = Number.isFinite(raw) ? Math.min(4096, Math.max(128, raw)) : 489;
+      syncMultipartPartSizeInputs(normalized);
+      return normalized;
+    }
+
+    function getMultipartPartCharLimit() {
+      return getMultipartPartSizeKb() * 1024;
+    }
+
+    function syncMultipartPartSizeInputs(source) {
+      const rawValue = typeof source === "number" ? source : parseInt(source.value || "489", 10);
+      const normalized = Number.isFinite(rawValue) ? Math.min(4096, Math.max(128, rawValue)) : 489;
+      multipartPartSizeKbInput.value = String(normalized);
+      lineLengthPartSizeMirrorInput.value = String(normalized);
     }
 
     function applyTheme(preference) {
