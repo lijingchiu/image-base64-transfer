@@ -593,7 +593,7 @@
       <div class="row">
         <div>
           <label for="multipartPartSizeKb">Multipart Part Size (KB)<span class="hint">控制每個分片 txt 的目標大小。調大可減少分片數，但 GitHub API 太大的單檔可能較不穩。489 KB 是原本預設值。</span></label>
-          <input id="multipartPartSizeKb" type="number" min="128" step="1" value="489" />
+          <input id="multipartPartSizeKb" type="number" min="128" max="16384" step="1" value="489" />
         </div>
         <div></div>
       </div>
@@ -664,7 +664,7 @@
           </div>
           <div>
             <label for="lineLengthPartSizeMirror">Multipart Part Size (KB)<span class="hint">與 GitHub Settings 共用。用來控制本地與 GitHub 匯出的每個 part 檔案大小。</span></label>
-            <input id="lineLengthPartSizeMirror" type="number" min="128" step="1" value="489" />
+            <input id="lineLengthPartSizeMirror" type="number" min="128" max="16384" step="1" value="489" />
           </div>
         </div>
 
@@ -2930,7 +2930,7 @@ ${error.message}`, "error");
 
     function getMultipartPartSizeKb() {
       const raw = parseInt(multipartPartSizeKbInput.value || lineLengthPartSizeMirrorInput.value || "489", 10);
-      const normalized = Number.isFinite(raw) ? Math.min(4096, Math.max(128, raw)) : 489;
+      const normalized = Number.isFinite(raw) ? Math.min(16384, Math.max(128, raw)) : 489;
       syncMultipartPartSizeInputs(normalized);
       return normalized;
     }
@@ -2941,7 +2941,7 @@ ${error.message}`, "error");
 
     function syncMultipartPartSizeInputs(source) {
       const rawValue = typeof source === "number" ? source : parseInt(source.value || "489", 10);
-      const normalized = Number.isFinite(rawValue) ? Math.min(4096, Math.max(128, rawValue)) : 489;
+      const normalized = Number.isFinite(rawValue) ? Math.min(16384, Math.max(128, rawValue)) : 489;
       multipartPartSizeKbInput.value = String(normalized);
       lineLengthPartSizeMirrorInput.value = String(normalized);
     }
