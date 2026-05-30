@@ -2490,7 +2490,7 @@ ${error.message}`, "error");
           return githubDecodeFileResponse(settings, data, candidate);
         }
       }
-      throw new Error(`GitHub get content failed for ${candidates[0]}: Not Found\nPossible cause: multipart part path could not be resolved from the stored manifest.`);
+      throw new Error(`GitHub get content failed for ${candidates[0]}: Not Found\nPossible cause: multipart part path could not be resolved from the stored manifest.\nTried:\n${candidates.join("\n")}`);
     }
 
     async function buildMultipartRawTextBlob(manifest, readPartText) {
@@ -3294,16 +3294,23 @@ ${error.message}`, "error");
       const expandedCandidates = [];
       for (const candidate of candidates.filter(Boolean)) {
         expandedCandidates.push(candidate);
-        const nestedCandidate = buildNestedMultipartCandidate(candidate);
-        if (nestedCandidate && nestedCandidate !== candidate) expandedCandidates.push(nestedCandidate);
+        expandedCandidates.push(...buildNestedMultipartCandidates(candidate, 4));
       }
 
       return Array.from(new Set(expandedCandidates));
     }
 
-    function buildNestedMultipartCandidate(path) {
-      if (!path) return path;
-      return path.replace(/\.part(\d+)\.txt$/i, ".part$1.part001.txt");
+    function buildNestedMultipartCandidates(path, depth = 1) {
+      if (!path) return [];
+      const candidates = [];
+      let current = path;
+      for (let i = 0; i < depth; i += 1) {
+        const next = current.replace(/\.part(\d+)\.txt$/i, ".part$1.part001.txt");
+        if (!next || next === current) break;
+        candidates.push(next);
+        current = next;
+      }
+      return candidates;
     }
 
     function findLocalMultipartFile(fileMap, normalizedPartPath) {
