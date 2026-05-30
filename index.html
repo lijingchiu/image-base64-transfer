@@ -2191,7 +2191,10 @@ ${error.message}`, "error");
     }
 
     function parseMultipartManifest(text) {
-      const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      const normalized = text
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .replace(new RegExp(`(?!^)${MULTIPART_HEADER}`, "g"), `\n${MULTIPART_HEADER}`);
       const lines = normalized.split("\n").map(line => line.trim()).filter(Boolean);
       if (!lines.length || lines[0] !== MULTIPART_HEADER) return null;
 
