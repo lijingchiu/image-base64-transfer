@@ -3248,19 +3248,38 @@ ${error.message}`, "error");
     function normalizeLocalMultipartPartPath(manifestRelativePath, partPath) {
       if (!partPath) return partPath;
       const cleanPartPath = partPath.replace(/^\/+/, "");
-      if (cleanPartPath.includes("/")) return cleanPartPath;
-      const segments = manifestRelativePath.split("/");
-      segments.pop();
-      return segments.length ? `${segments.join("/")}/${cleanPartPath}` : cleanPartPath;
+      const manifestSegments = manifestRelativePath.split("/").filter(Boolean);
+      manifestSegments.pop();
+      return normalizeMultipartPathWithContext(manifestSegments, cleanPartPath);
     }
 
     function normalizeMultipartPartPath(manifestPath, partPath) {
       if (!partPath) return partPath;
       const cleanPartPath = partPath.replace(/^\/+/, "");
-      if (cleanPartPath.includes("/")) return cleanPartPath;
-      const segments = manifestPath.split("/");
-      segments.pop();
-      return segments.length ? `${segments.join("/")}/${cleanPartPath}` : cleanPartPath;
+      const manifestSegments = manifestPath.split("/").filter(Boolean);
+      manifestSegments.pop();
+      return normalizeMultipartPathWithContext(manifestSegments, cleanPartPath);
+    }
+
+    function normalizeMultipartPathWithContext(manifestDirectorySegments, cleanPartPath) {
+      if (!cleanPartPath) return cleanPartPath;
+      if (!manifestDirectorySegments.length) return cleanPartPath;
+      if (!cleanPartPath.includes("/")) return `${manifestDirectorySegments.join("/")}/${cleanPartPath}`;
+
+      const cleanSegments = cleanPartPath.split("/").filter(Boolean);
+      let overlap = 0;
+      const maxOverlap = Math.min(manifestDirectorySegments.length, cleanSegments.length);
+      for (let size = maxOverlap; size > 0; size -= 1) {
+        const manifestSuffix = manifestDirectorySegments.slice(-size).join("/");
+        const partPrefix = cleanSegments.slice(0, size).join("/");
+        if (manifestSuffix === partPrefix) {
+          overlap = size;
+          break;
+        }
+      }
+
+      const prefixSegments = manifestDirectorySegments.slice(0, manifestDirectorySegments.length - overlap);
+      return prefixSegments.length ? `${prefixSegments.join("/")}/${cleanPartPath}` : cleanPartPath;
     }
 
     function findLocalMultipartFile(fileMap, normalizedPartPath) {
