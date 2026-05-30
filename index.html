@@ -2483,8 +2483,14 @@ ${error.message}`, "error");
     }
 
     async function readGithubMultipartPartText(settings, branch, manifestPath, partPath) {
-      const normalizedPartPath = normalizeMultipartPartPath(manifestPath, partPath);
-      return githubFetchSingleTextFile(settings, branch, normalizedPartPath);
+      const candidates = buildGithubMultipartPartPathCandidates(settings, manifestPath, partPath);
+      for (const candidate of candidates) {
+        const data = await githubFetchContentByPath(settings, branch, candidate, true);
+        if (data && data.type === "file") {
+          return githubDecodeFileResponse(settings, data, candidate);
+        }
+      }
+      throw new Error(`GitHub get content failed for ${candidates[0]}: Not Found\nPossible cause: multipart part path could not be resolved from the stored manifest.`);
     }
 
     async function buildMultipartRawTextBlob(manifest, readPartText) {
@@ -3263,6 +3269,29 @@ ${error.message}`, "error");
 
       const prefixSegments = manifestDirectorySegments.slice(0, manifestDirectorySegments.length - overlap);
       return prefixSegments.length ? `${prefixSegments.join("/")}/${cleanPartPath}` : cleanPartPath;
+    }
+
+    function buildGithubMultipartPartPathCandidates(settings, manifestPath, partPath) {
+      const cleanPartPath = (partPath || "").replace(/^\/+/, "");
+      const normalized = normalizeMultipartPartPath(manifestPath, cleanPartPath);
+      const candidates = [normalized];
+      const batchBasePath = (settings.batchPath || "").replace(/^\/+|\/+$/g, "");
+      const manifestDirectory = manifestPath.split("/").filter(Boolean).slice(0, -1).join("/");
+
+      if (batchBasePath) {
+        if (!normalized.startsWith(batchBasePath + "/") && normalized !== batchBasePath) {
+          candidates.push(joinGithubPath(batchBasePath, normalized));
+        }
+        if (!cleanPartPath.startsWith(batchBasePath + "/") && cleanPartPath !== batchBasePath) {
+          candidates.push(joinGithubPath(batchBasePath, cleanPartPath));
+        }
+      }
+
+      if (manifestDirectory && cleanPartPath) {
+        candidates.push(joinGithubPath(manifestDirectory, cleanPartPath));
+      }
+
+      return Array.from(new Set(candidates.filter(Boolean)));
     }
 
     function findLocalMultipartFile(fileMap, normalizedPartPath) {
