@@ -2506,7 +2506,7 @@ ${error.message}`, "error");
 
       const manifest = parseMultipartManifest(text);
       if (manifest) {
-        const resolvedManifestPath = manifest.targetPath || manifestPath;
+        const resolvedManifestPath = resolveManifestTargetPath(manifestPath, manifest.targetPath || "");
         const firstPartPath = manifest.parts && manifest.parts[0];
         if (!firstPartPath) throw new Error(`Multipart manifest has no parts for ${inputDescription}.`);
         const firstPartText = await readPartTextByManifest(resolvedManifestPath, firstPartPath);
@@ -3269,6 +3269,15 @@ ${error.message}`, "error");
 
       const prefixSegments = manifestDirectorySegments.slice(0, manifestDirectorySegments.length - overlap);
       return prefixSegments.length ? `${prefixSegments.join("/")}/${cleanPartPath}` : cleanPartPath;
+    }
+
+    function resolveManifestTargetPath(currentManifestPath, targetPath) {
+      const cleanTargetPath = (targetPath || "").replace(/^\/+/, "");
+      if (!cleanTargetPath) return currentManifestPath;
+
+      const currentSegments = (currentManifestPath || "").split("/").filter(Boolean);
+      currentSegments.pop();
+      return normalizeMultipartPathWithContext(currentSegments, cleanTargetPath);
     }
 
     function buildGithubMultipartPartPathCandidates(settings, manifestPath, partPath) {
