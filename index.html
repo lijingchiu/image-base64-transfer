@@ -2205,12 +2205,23 @@ ${error.message}`, "error");
         if (equalsIndex <= 0) continue;
         const key = line.slice(0, equalsIndex).trim();
         const value = line.slice(equalsIndex + 1).trim();
-        if (key === "TARGET_PATH") targetPath = value;
-        if (/^PART_\d+$/.test(key) && value) parts.push(value);
+        if (key === "TARGET_PATH") targetPath = sanitizeManifestTxtPath(value);
+        if (/^PART_\d+$/.test(key) && value) {
+          const cleanPartPath = sanitizeManifestTxtPath(value);
+          if (cleanPartPath) parts.push(cleanPartPath);
+        }
       }
 
       if (!parts.length) throw new Error("Multipart manifest has no part entries.");
       return { parts, targetPath };
+    }
+
+    function sanitizeManifestTxtPath(value) {
+      if (!value) return "";
+      const headerIndex = value.indexOf(MULTIPART_HEADER);
+      const trimmed = headerIndex >= 0 ? value.slice(0, headerIndex) : value;
+      const txtMatch = trimmed.match(/.+?\.txt/i);
+      return txtMatch ? txtMatch[0].trim() : trimmed.trim();
     }
 
     function splitTextForGithubMultipart(text) {
