@@ -1564,32 +1564,27 @@ BASE64_END</div>
 
         for (const entry of normalizedFiles) {
           const relativePath = entry.relativePath;
-          const manifestText = await entry.file.text();
-          const manifest = parseMultipartManifest(manifestText);
+          const text = await entry.file.text();
+          const resolved = await resolveImportedArtifactFromText(
+            text,
+            "Batch Txt: " + relativePath,
+            relativePath,
+            (manifestPath, partPath) => readLocalMultipartPartText(entry, manifestPath, partPath)
+          );
 
-          if (manifest) {
-            if (await isRawTextMultipartManifest(manifest, partPath => readLocalMultipartPartText(entry, partPath))) {
-              const textBlob = await buildMultipartRawTextBlob(manifest, partPath => readLocalMultipartPartText(entry, partPath));
-              const targetRelativePath = relativePath;
-              const targetName = entry.file.name;
+          if (resolved.kind === "text") {
+            const targetRelativePath = relativePath;
+            const targetName = entry.file.name;
 
-              if (outputDirectory) {
-                await writeFileToDirectory(outputDirectory, targetRelativePath, textBlob, "text/plain;charset=utf-8");
-                appendBatchLog(`OK  IMPORT  ${relativePath} -> ${targetRelativePath} (multipart raw text)`);
-              } else {
-                downloadBlob(textBlob, targetName);
-                appendBatchLog(`OK  IMPORT  ${relativePath} -> download ${targetName} (multipart raw text)`);
-              }
-
-              successCount += 1;
-              continue;
+            if (outputDirectory) {
+              await writeFileToDirectory(outputDirectory, targetRelativePath, resolved.text, "text/plain;charset=utf-8");
+              appendBatchLog(`OK  IMPORT  ${relativePath} -> ${targetRelativePath} (${resolved.sha256})`);
+            } else {
+              downloadTextFile(resolved.text, targetName);
+              appendBatchLog(`OK  IMPORT  ${relativePath} -> download ${targetName} (${resolved.sha256})`);
             }
-
-            const decoded = await decodeMultipartBase64FromManifest(
-              manifest,
-              partPath => readLocalMultipartPartText(entry, partPath),
-              "Batch Txt: " + relativePath
-            );
+          } else {
+            const decoded = resolved.decoded;
             const targetRelativePath = replaceExtension(relativePath, "." + decoded.outputExtension);
             const targetName = replaceExtension(entry.file.name, "." + decoded.outputExtension);
 
@@ -1600,37 +1595,6 @@ BASE64_END</div>
               downloadBinaryFile(decoded.bytes, decoded.mimeType, targetName);
               appendBatchLog(`OK  IMPORT  ${relativePath} -> download ${targetName} (${decoded.sha256})`);
             }
-
-            successCount += 1;
-            continue;
-          }
-
-          if (shouldTreatBatchImportAsRawText(manifestText)) {
-            const textSha256 = await calculateTextSHA256(manifestText);
-            const targetRelativePath = relativePath;
-            const targetName = entry.file.name;
-
-            if (outputDirectory) {
-              await writeFileToDirectory(outputDirectory, targetRelativePath, manifestText, "text/plain;charset=utf-8");
-              appendBatchLog(`OK  IMPORT  ${relativePath} -> ${targetRelativePath} (${textSha256})`);
-            } else {
-              downloadTextFile(manifestText, targetName);
-              appendBatchLog(`OK  IMPORT  ${relativePath} -> download ${targetName} (${textSha256})`);
-            }
-
-            successCount += 1;
-            continue;
-          }
-          const decoded = await decodeTextContentToBinary(manifestText, "Batch Txt: " + relativePath);
-          const targetRelativePath = replaceExtension(relativePath, "." + decoded.outputExtension);
-          const targetName = replaceExtension(entry.file.name, "." + decoded.outputExtension);
-
-          if (outputDirectory) {
-            await writeFileToDirectory(outputDirectory, targetRelativePath, decoded.bytes, decoded.mimeType);
-            appendBatchLog(`OK  IMPORT  ${relativePath} -> ${targetRelativePath} (${decoded.sha256})`);
-          } else {
-            downloadBinaryFile(decoded.bytes, decoded.mimeType, targetName);
-            appendBatchLog(`OK  IMPORT  ${relativePath} -> download ${targetName} (${decoded.sha256})`);
           }
 
           successCount += 1;
@@ -1692,37 +1656,32 @@ BASE64_END</div>
         for (const txtPath of txtPaths) {
           const relativePath = stripGithubBasePath(txtPath, basePath);
           const text = await githubFetchSingleTextFile(settings, branch, txtPath);
-          const manifest = parseMultipartManifest(text);
+          const resolved = await resolveImportedArtifactFromText(
+            text,
+            "GitHub Batch Txt: " + txtPath,
+            txtPath,
+            (manifestPath, partPath) => readGithubMultipartPartText(settings, branch, manifestPath, partPath)
+          );
 
-          if (manifest) {
-            if (await isRawTextMultipartManifest(manifest, partPath => readGithubMultipartPartText(settings, branch, txtPath, partPath))) {
-              const textBlob = await buildMultipartRawTextBlob(manifest, partPath => readGithubMultipartPartText(settings, branch, txtPath, partPath));
-              const targetRelativePath = relativePath;
-              const targetName = relativePath.split("/").pop() || "restored.txt";
+          if (resolved.kind === "text") {
+            const targetRelativePath = relativePath;
+            const targetName = relativePath.split("/").pop() || "restored.txt";
 
-              if (outputDirectory) {
-                try {
-                  await writeFileToDirectory(outputDirectory, targetRelativePath, textBlob, "text/plain;charset=utf-8");
-                  appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> ${targetRelativePath} (multipart raw text)`);
-                } catch (writeError) {
-                  downloadBlob(textBlob, targetName);
-                  appendBatchLog(`WARN GITHUB IMPORT  ${txtPath} -> write failed for ${targetRelativePath}; downloaded ${targetName} instead (multipart raw text)`);
-                  appendBatchLog(`WARN DETAILS ${formatNativeFileError(writeError)}`);
-                }
-              } else {
-                downloadBlob(textBlob, targetName);
-                appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> download ${targetName} (multipart raw text)`);
+            if (outputDirectory) {
+              try {
+                await writeFileToDirectory(outputDirectory, targetRelativePath, resolved.text, "text/plain;charset=utf-8");
+                appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> ${targetRelativePath} (${resolved.sha256})`);
+              } catch (writeError) {
+                downloadTextFile(resolved.text, targetName);
+                appendBatchLog(`WARN GITHUB IMPORT  ${txtPath} -> write failed for ${targetRelativePath}; downloaded ${targetName} instead (${resolved.sha256})`);
+                appendBatchLog(`WARN DETAILS ${formatNativeFileError(writeError)}`);
               }
-
-              successCount += 1;
-              continue;
+            } else {
+              downloadTextFile(resolved.text, targetName);
+              appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> download ${targetName} (${resolved.sha256})`);
             }
-
-            const decoded = await decodeMultipartBase64FromManifest(
-              manifest,
-              partPath => readGithubMultipartPartText(settings, branch, txtPath, partPath),
-              "GitHub Batch Txt: " + txtPath
-            );
+          } else {
+            const decoded = resolved.decoded;
             const targetRelativePath = replaceExtension(relativePath, "." + decoded.outputExtension);
             const targetName = replaceExtension(relativePath.split("/").pop() || "restored.txt", "." + decoded.outputExtension);
 
@@ -1739,49 +1698,6 @@ BASE64_END</div>
               downloadBinaryFile(decoded.bytes, decoded.mimeType, targetName);
               appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> download ${targetName} (${decoded.sha256})`);
             }
-
-            successCount += 1;
-            continue;
-          }
-
-          if (shouldTreatBatchImportAsRawText(text)) {
-            const textSha256 = await calculateTextSHA256(text);
-            const targetRelativePath = relativePath;
-            const targetName = relativePath.split("/").pop() || "restored.txt";
-
-            if (outputDirectory) {
-              try {
-                await writeFileToDirectory(outputDirectory, targetRelativePath, text, "text/plain;charset=utf-8");
-                appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> ${targetRelativePath} (${textSha256})`);
-              } catch (writeError) {
-                downloadTextFile(text, targetName);
-                appendBatchLog(`WARN GITHUB IMPORT  ${txtPath} -> write failed for ${targetRelativePath}; downloaded ${targetName} instead (${textSha256})`);
-                appendBatchLog(`WARN DETAILS ${formatNativeFileError(writeError)}`);
-              }
-            } else {
-              downloadTextFile(text, targetName);
-              appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> download ${targetName} (${textSha256})`);
-            }
-
-            successCount += 1;
-            continue;
-          }
-          const decoded = await decodeTextContentToBinary(text, "GitHub Batch Txt: " + txtPath);
-          const targetRelativePath = replaceExtension(relativePath, "." + decoded.outputExtension);
-          const targetName = replaceExtension(relativePath.split("/").pop() || "restored.txt", "." + decoded.outputExtension);
-
-          if (outputDirectory) {
-            try {
-              await writeFileToDirectory(outputDirectory, targetRelativePath, decoded.bytes, decoded.mimeType);
-              appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> ${targetRelativePath} (${decoded.sha256})`);
-            } catch (writeError) {
-              downloadBinaryFile(decoded.bytes, decoded.mimeType, targetName);
-              appendBatchLog(`WARN GITHUB IMPORT  ${txtPath} -> write failed for ${targetRelativePath}; downloaded ${targetName} instead (${decoded.sha256})`);
-              appendBatchLog(`WARN DETAILS ${formatNativeFileError(writeError)}`);
-            }
-          } else {
-            downloadBinaryFile(decoded.bytes, decoded.mimeType, targetName);
-            appendBatchLog(`OK  GITHUB IMPORT  ${txtPath} -> download ${targetName} (${decoded.sha256})`);
           }
 
           successCount += 1;
@@ -2280,16 +2196,18 @@ ${error.message}`, "error");
       if (!lines.length || lines[0] !== MULTIPART_HEADER) return null;
 
       const parts = [];
+      let targetPath = "";
       for (const line of lines.slice(1)) {
         const equalsIndex = line.indexOf("=");
         if (equalsIndex <= 0) continue;
         const key = line.slice(0, equalsIndex).trim();
         const value = line.slice(equalsIndex + 1).trim();
+        if (key === "TARGET_PATH") targetPath = value;
         if (/^PART_\d+$/.test(key) && value) parts.push(value);
       }
 
       if (!parts.length) throw new Error("Multipart manifest has no part entries.");
-      return { parts };
+      return { parts, targetPath };
     }
 
     function splitTextForGithubMultipart(text) {
@@ -2557,8 +2475,8 @@ ${error.message}`, "error");
       return parts.join("");
     }
 
-    async function readLocalMultipartPartText(entry, partPath) {
-      const normalizedPartPath = normalizeLocalMultipartPartPath(entry.relativePath, partPath);
+    async function readLocalMultipartPartText(entry, manifestPath, partPath) {
+      const normalizedPartPath = normalizeLocalMultipartPartPath(manifestPath, partPath);
       const partFile = findLocalMultipartFile(entry.fileMap, normalizedPartPath);
       if (!partFile) throw new Error(`Missing local multipart file: ${normalizedPartPath}`);
       return partFile.text();
@@ -2577,12 +2495,69 @@ ${error.message}`, "error");
       return new Blob(parts, { type: "text/plain;charset=utf-8" });
     }
 
-    async function isRawTextMultipartManifest(manifest, readPartText) {
-      if (getCurrentModeConfig().passThroughText) return true;
-      const firstPartPath = manifest.parts && manifest.parts[0];
-      if (!firstPartPath) return false;
-      const firstPartText = await readPartText(firstPartPath);
-      return !isLikelyBase64PayloadText(firstPartText);
+    async function resolveImportedArtifactFromText(text, inputDescription, manifestPath, readPartTextByManifest, depth = 0) {
+      if (depth > 6) throw new Error(`Import recursion limit reached for ${inputDescription}.`);
+
+      const manifest = parseMultipartManifest(text);
+      if (manifest) {
+        const resolvedManifestPath = manifest.targetPath || manifestPath;
+        const firstPartPath = manifest.parts && manifest.parts[0];
+        if (!firstPartPath) throw new Error(`Multipart manifest has no parts for ${inputDescription}.`);
+        const firstPartText = await readPartTextByManifest(resolvedManifestPath, firstPartPath);
+
+        if (isLikelyBase64PayloadText(firstPartText)) {
+          return {
+            kind: "binary",
+            decoded: await decodeMultipartBase64FromManifest(
+              manifest,
+              partPath => readPartTextByManifest(resolvedManifestPath, partPath),
+              inputDescription
+            )
+          };
+        }
+
+        const combinedText = await concatenateMultipartText(
+          manifest,
+          partPath => readPartTextByManifest(resolvedManifestPath, partPath)
+        );
+
+        if (looksLikeToolStructuredText(combinedText)) {
+          return resolveImportedArtifactFromText(
+            combinedText,
+            inputDescription,
+            resolvedManifestPath,
+            readPartTextByManifest,
+            depth + 1
+          );
+        }
+
+        return {
+          kind: "text",
+          text: combinedText,
+          sha256: await calculateTextSHA256(combinedText)
+        };
+      }
+
+      if (isLikelyBase64PayloadText(text)) {
+        return {
+          kind: "binary",
+          decoded: await decodeTextContentToBinary(text, inputDescription)
+        };
+      }
+
+      return {
+        kind: "text",
+        text,
+        sha256: await calculateTextSHA256(text)
+      };
+    }
+
+    async function concatenateMultipartText(manifest, readPartText) {
+      const parts = [];
+      for (const partPath of manifest.parts) {
+        parts.push(await readPartText(partPath));
+      }
+      return parts.join("");
     }
 
     async function decodeMultipartBase64FromManifest(manifest, readPartText, inputDescription) {
@@ -2681,6 +2656,14 @@ ${error.message}`, "error");
     }
 
     function stripPlainBase64Text(content) { return content.replace(/\s+/g, ""); }
+
+    function looksLikeToolStructuredText(content) {
+      return !!content && (
+        content.includes(MULTIPART_HEADER) ||
+        content.includes(HEADER) ||
+        content.includes(BASE64_BEGIN)
+      );
+    }
 
     function isLikelyBase64PayloadText(content) {
       if (!content || !content.trim()) return false;
