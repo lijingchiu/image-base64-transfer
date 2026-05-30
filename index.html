@@ -3291,7 +3291,19 @@ ${error.message}`, "error");
         candidates.push(joinGithubPath(manifestDirectory, cleanPartPath));
       }
 
-      return Array.from(new Set(candidates.filter(Boolean)));
+      const expandedCandidates = [];
+      for (const candidate of candidates.filter(Boolean)) {
+        expandedCandidates.push(candidate);
+        const nestedCandidate = buildNestedMultipartCandidate(candidate);
+        if (nestedCandidate && nestedCandidate !== candidate) expandedCandidates.push(nestedCandidate);
+      }
+
+      return Array.from(new Set(expandedCandidates));
+    }
+
+    function buildNestedMultipartCandidate(path) {
+      if (!path) return path;
+      return path.replace(/\.part(\d+)\.txt$/i, ".part$1.part001.txt");
     }
 
     function findLocalMultipartFile(fileMap, normalizedPartPath) {
